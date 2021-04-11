@@ -18,6 +18,16 @@ export interface Provider {
   profile?: (profile: any) => Promise<any>
 }
 
+export interface NextAuthPages {
+  signIn?: string
+  signOut?: string
+  /** Error code passed in query string as ?error= */
+  error?: string
+  verifyRequest?: string
+  /** If set, new users will be directed here on first sign in */
+  newUser?: string
+}
+
 /** @docs https://next-auth.js.org/configuration/options */
 export interface NextAuthOptions {
   /** @docs https://next-auth.js.org/configuration/options#theme */
@@ -33,14 +43,15 @@ export interface NextAuthOptions {
   /** @docs https://next-auth.js.org/configuration/options#jwt */
   jwt?: any
   /** @docs https://next-auth.js.org/configuration/options#pages */
-  pages?: {
-    signIn?: string
-    signOut?: string
-    /** Error code passed in query string as ?error= */
-    error?: string
-    verifyRequest?: string
-    /** If set, new users will be directed here on first sign in */
-    newUser?: string
+  pages?: NextAuthPages
+  /** @docs https://next-auth.js.org/configuration/options#locales  */
+  locales?: {
+    /** locale key that matches locale set in next.config.js */
+    [key: string]: {
+      [key: keyof NextAuthPages | 'email']: {
+        [key: string]: string | object
+      }
+    }
   }
   /**
    * Callbacks are asynchronous functions you can use to control what happens when an action is performed.
@@ -62,10 +73,12 @@ export interface NextAuthOptions {
   cookies?: CookiesOptions
   /** @docs https://next-auth.js.org/configuration/options#logger */
   logger: LoggerInstance
+  /** @docs https://next-auth.js.org/configuration/options#locale */
+  locale?: string
 }
 
 /** Options that are the same both in internal and user provided options. */
-export type NextAuthSharedOptions = 'pages' | 'jwt' | 'events' | 'callbacks' | 'cookies' | 'secret' | 'adapter' | 'theme' | 'debug' | 'logger'
+export type NextAuthSharedOptions = 'pages' | 'jwt' | 'events' | 'callbacks' | 'cookies' | 'secret' | 'adapter' | 'theme' | 'debug' | 'logger' | 'locales'
 
 export interface NextAuthInternalOptions extends Pick<NextAuthOptions, NextAuthSharedOptions> {
   pkce?: {

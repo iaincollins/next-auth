@@ -236,11 +236,12 @@ const Adapter = (config) => {
       }
     }
 
-    async function createVerificationRequest (identifier, url, token, secret, provider) {
+    async function createVerificationRequest (identifier, url, token, secret, provider, options) {
       debug('CREATE_VERIFICATION_REQUEST', identifier)
       try {
         const { baseUrl } = appOptions
         const { sendVerificationRequest, maxAge } = provider
+        const { locale, locales } = options
 
         // Store hashed token (using secret as salt) so that tokens cannot be exploited
         // even if the contents of the database is compromised.
@@ -265,7 +266,7 @@ const Adapter = (config) => {
 
         // With the verificationCallback on a provider, you can send an email, or queue
         // an email to be sent, or perform some other action (e.g. send a text message)
-        await sendVerificationRequest({ identifier, url, token, baseUrl, provider })
+        await sendVerificationRequest({ identifier, url, token, baseUrl, provider, locale, locales })
 
         return verificationRequest
       } catch (error) {

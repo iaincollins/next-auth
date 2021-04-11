@@ -189,7 +189,7 @@ a.site {
     overflow: visible;
 
     &::before {
-      content: "or";
+      content: attr(divider-text);;
       background: var(--color-background);
       color: #888;
       padding: 0 .4rem;

@@ -3,6 +3,7 @@ import * as cookie from '../cookie'
 import jwt from '../../../lib/jwt'
 import logger from '../../../lib/logger'
 import { OAuthCallbackError } from '../../../lib/errors'
+import URLExtended from '../../../lib/url-extended'
 
 const PKCE_LENGTH = 64
 const PKCE_CODE_CHALLENGE_METHOD = 'S256' // can be 'plain', not recommended https://tools.ietf.org/html/rfc7636#section-4.2
@@ -14,7 +15,7 @@ const PKCE_MAX_AGE = 60 * 15 // 15 minutes in seconds
  * @param {import("../..").NextAuthResponse} res
  */
 export async function handleCallback (req, res) {
-  const { cookies, provider, baseUrl, basePath } = req.options
+  const { cookies, provider, baseUrl, basePath, locale } = req.options
   try {
     if (!provider.protection.includes('pkce')) { // Provider does not support PKCE, nothing to do.
       return
@@ -38,7 +39,7 @@ export async function handleCallback (req, res) {
     cookie.set(res, cookies.pkceCodeVerifier.name, null, { maxAge: 0 }) // remove PKCE after it has been used
   } catch (error) {
     logger.error('CALLBACK_OAUTH_ERROR', error)
-    return res.redirect(`${baseUrl}${basePath}/error?error=OAuthCallback`)
+    return res.redirect(new URLExtended(`${basePath}/error`, { error: 'OAuthCallback', locale }, baseUrl).toString())
   }
 }
 
@@ -48,7 +49,7 @@ export async function handleCallback (req, res) {
  * @param {import("../..").NextAuthResponse} res
  */
 export async function handleSignin (req, res) {
-  const { cookies, provider, baseUrl, basePath } = req.options
+  const { cookies, provider, baseUrl, basePath, locale } = req.options
   try {
     if (!provider.protection.includes('pkce')) { // Provider does not support PKCE, nothing to do.
       return
@@ -83,7 +84,7 @@ export async function handleSignin (req, res) {
     logger.debug('OAUTH_SIGNIN_PROTECTION', 'Created PKCE code_verifier saved in cookie')
   } catch (error) {
     logger.error('SIGNIN_OAUTH_ERROR', error)
-    return res.redirect(`${baseUrl}${basePath}/error?error=OAuthSignin`)
+    return res.redirect(new URLExtended(`${basePath}/error`, { error: 'OAuthSignin', locale }, baseUrl).toString())
   }
 }
 

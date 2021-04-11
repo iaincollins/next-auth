@@ -66,7 +66,7 @@ const Adapter = (config, options = {}) => {
       return null
     }
 
-    async function createVerificationRequest (identifier, url, token, secret, provider) {
+    async function createVerificationRequest (identifier, url, token, secret, provider, options) {
       debug('createVerificationRequest', identifier)
       return null
     }

@@ -126,7 +126,8 @@ const Adapter = (config, options = {}) => {
       url,
       token,
       secret,
-      provider
+      provider,
+      options
     ) {
       return null
     }

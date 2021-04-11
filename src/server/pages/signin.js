@@ -1,6 +1,6 @@
 import { h } from 'preact' // eslint-disable-line no-unused-vars
 
-export default function signin ({ csrfToken, providers, callbackUrl, email, error: errorType }) {
+export default function signin ({ csrfToken, providers, callbackUrl, email, error: errorType, locale, texts }) {
   // We only want to render providers
   const providersToRender = providers.filter(provider => {
     if (provider.type === 'oauth' || provider.type === 'email') {
@@ -14,20 +14,7 @@ export default function signin ({ csrfToken, providers, callbackUrl, email, erro
     return false
   })
 
-  const errors = {
-    Signin: 'Try signing with a different account.',
-    OAuthSignin: 'Try signing with a different account.',
-    OAuthCallback: 'Try signing with a different account.',
-    OAuthCreateAccount: 'Try signing with a different account.',
-    EmailCreateAccount: 'Try signing with a different account.',
-    Callback: 'Try signing with a different account.',
-    OAuthAccountNotLinked: 'To confirm your identity, sign in with the same account you used originally.',
-    EmailSignin: 'Check your email address.',
-    CredentialsSignin: 'Sign in failed. Check the details you provided are correct.',
-    default: 'Unable to sign in.'
-  }
-
-  const error = errorType && (errors[errorType] ?? errors.default)
+  const error = errorType && (texts.errors[errorType] ?? texts.errors.default)
 
   return (
     <div className='signin'>
@@ -41,17 +28,17 @@ export default function signin ({ csrfToken, providers, callbackUrl, email, erro
             <form action={provider.signinUrl} method='POST'>
               <input type='hidden' name='csrfToken' value={csrfToken} />
               {callbackUrl && <input type='hidden' name='callbackUrl' value={callbackUrl} />}
-              <button type='submit' className='button'>Sign in with {provider.name}</button>
+              <button type='submit' className='button'>{texts.submit.replace('%s', provider.name)}</button>
             </form>}
           {(provider.type === 'email' || provider.type === 'credentials') && (i > 0) &&
           providersToRender[i - 1].type !== 'email' && providersToRender[i - 1].type !== 'credentials' &&
-            <hr />}
+            <hr divider-text={texts.dividerText} />}
           {provider.type === 'email' &&
             <form action={provider.signinUrl} method='POST'>
               <input type='hidden' name='csrfToken' value={csrfToken} />
-              <label for={`input-email-for-${provider.id}-provider`}>Email</label>
+              <label for={`input-email-for-${provider.id}-provider`}>{texts.email}</label>
               <input id={`input-email-for-${provider.id}-provider`} autoFocus type='text' name='email' value={email} placeholder='email@example.com' />
-              <button type='submit'>Sign in with {provider.name}</button>
+              <button type='submit'>{texts.submit.replace('%s', provider.name)}</button>
             </form>}
           {provider.type === 'credentials' &&
             <form action={provider.callbackUrl} method='POST'>
@@ -61,7 +48,7 @@ export default function signin ({ csrfToken, providers, callbackUrl, email, erro
                   <div key={`input-group-${provider.id}`}>
                     <label
                       for={`input-${credential}-for-${provider.id}-provider`}
-                    >{provider.credentials[credential].label || credential}
+                    >{(typeof provider.credentials[credential].label === 'object' ? provider.credentials[credential].label[locale] : provider.credentials[credential].label) || credential}
                     </label>
                     <input
                       name={credential}
@@ -73,10 +60,10 @@ export default function signin ({ csrfToken, providers, callbackUrl, email, erro
                   </div>
                 )
               })}
-              <button type='submit'>Sign in with {provider.name}</button>
+              <button type='submit'>{texts.submit.replace('%s', provider.name)}</button>
             </form>}
           {(provider.type === 'email' || provider.type === 'credentials') && ((i + 1) < providersToRender.length) &&
-            <hr />}
+            <hr divider-text={texts.dividerText} />}
         </div>
       )}
     </div>

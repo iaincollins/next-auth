@@ -14,6 +14,8 @@ import csrfTokenHandler from './lib/csrf-token-handler'
 import createSecret from './lib/create-secret'
 import * as pkce from './lib/oauth/pkce-handler'
 import * as state from './lib/oauth/state-handler'
+import URLExtended from '../lib/url-extended'
+import localeHandler from './lib/locale-handler'
 
 // To work properly in production with OAuth providers the NEXTAUTH_URL
 // environment variable must be set.
@@ -65,11 +67,13 @@ async function NextAuthHandler (req, res, userOptions) {
       ...userOptions.cookies
     }
 
+    const locale = localeHandler(req, res, cookies)
+
     const secret = createSecret({ userOptions, basePath, baseUrl })
 
     const { csrfToken, csrfTokenVerified } = csrfTokenHandler(req, res, cookies, secret)
 
-    const providers = parseProviders({ providers: userOptions.providers, baseUrl, basePath })
+    const providers = parseProviders({ providers: userOptions.providers, baseUrl, basePath, locale })
     const provider = providers.find(({ id }) => id === providerId)
 
     if (provider &&
@@ -135,6 +139,7 @@ async function NextAuthHandler (req, res, userOptions) {
         ...userOptions.callbacks
       },
       pkce: {},
+      locale,
       logger
     }
 
@@ -153,16 +158,23 @@ async function NextAuthHandler (req, res, userOptions) {
           return res.json({ csrfToken })
         case 'signin':
           if (pages.signIn) {
-            let signinUrl = `${pages.signIn}${pages.signIn.includes('?') ? '&' : '?'}callbackUrl=${req.options.callbackUrl}`
-            if (error) { signinUrl = `${signinUrl}&error=${error}` }
-            return res.redirect(signinUrl)
+            // prepend locale to custom page path if available
+            return res.redirect(new URLExtended(`/${locale ?? ''}${pages.signIn}`, {
+              callBackUrl: req.options.callbackUrl,
+              error
+            }).toStringRelative())
           }
 
           return render.signin()
         case 'signout':
           if (pages.signOut) {
-            return res.redirect(`${pages.signOut}${pages.signOut.includes('?') ? '&' : '?'}error=${error}`)
+            // prepend locale to custom page path if available
+            return res.redirect(new URLExtended(`/${locale ?? ''}${pages.signOut}`, {
+              callBackUrl: req.options.callbackUrl,
+              error
+            }).toStringRelative())
           }
+
           return render.signout()
         case 'callback':
           if (provider) {
@@ -173,12 +185,17 @@ async function NextAuthHandler (req, res, userOptions) {
           break
         case 'verify-request':
           if (pages.verifyRequest) {
-            return res.redirect(pages.verifyRequest)
+            // prepend locale to custom page path if available
+            return res.redirect(new URLExtended(`/${locale ?? ''}${pages.verifyRequest}`, {}).toStringRelative())
           }
+
           return render.verifyRequest()
         case 'error':
           if (pages.error) {
-            return res.redirect(`${pages.error}${pages.error.includes('?') ? '&' : '?'}error=${error}`)
+            // prepend locale to custom page path if available
+            return res.redirect(new URLExtended(`/${locale ?? ''}${pages.error}`, {
+              error
+            }).toStringRelative())
           }
 
           // These error messages are displayed in line on the sign in page
@@ -193,7 +210,10 @@ async function NextAuthHandler (req, res, userOptions) {
             'EmailSignin',
             'CredentialsSignin'
           ].includes(error)) {
-            return res.redirect(`${baseUrl}${basePath}/signin?error=${error}`)
+            return res.redirect(new URLExtended(`${basePath}/signin`, {
+              error,
+              locale
+            }, baseUrl).toString())
           }
 
           return render.error({ error })
@@ -209,18 +229,27 @@ async function NextAuthHandler (req, res, userOptions) {
             return routes.signin(req, res)
           }
 
-          return res.redirect(`${baseUrl}${basePath}/signin?csrf=true`)
+          return res.redirect(new URLExtended(`${basePath}/signin`, {
+            csrf: true,
+            locale
+          }, baseUrl).toString())
         case 'signout':
           // Verified CSRF Token required for signout
           if (csrfTokenVerified) {
             return routes.signout(req, res)
           }
-          return res.redirect(`${baseUrl}${basePath}/signout?csrf=true`)
+          return res.redirect(new URLExtended(`${basePath}/signout`, {
+            csrf: true,
+            locale
+          }, baseUrl).toString())
         case 'callback':
           if (provider) {
             // Verified CSRF Token required for credentials providers only
             if (provider.type === 'credentials' && !csrfTokenVerified) {
-              return res.redirect(`${baseUrl}${basePath}/signin?csrf=true`)
+              return res.redirect(new URLExtended(`${basePath}/signin`, {
+                csrf: true,
+                locale
+              }, baseUrl).toString())
             }
 
             if (await pkce.handleCallback(req, res)) return

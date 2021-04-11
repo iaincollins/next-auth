@@ -3,6 +3,7 @@ import callbackHandler from '../lib/callback-handler'
 import * as cookie from '../lib/cookie'
 import logger from '../../lib/logger'
 import dispatchEvent from '../lib/dispatch-event'
+import URLExtended from '../../lib/url-extended'
 
 /**
  * Handle callbacks from login services
@@ -25,7 +26,8 @@ export default async function callback (req, res) {
     session: {
       jwt: useJwtSession,
       maxAge: sessionMaxAge
-    }
+    },
+    locale
   } = req.options
 
   // Get session ID (if set)
@@ -47,7 +49,7 @@ export default async function callback (req, res) {
         // should at least be visible to developers what happened if it is an
         // error with the provider.
         if (!profile) {
-          return res.redirect(`${baseUrl}${basePath}/signin`)
+          return res.redirect(new URLExtended(`${basePath}/signin`, { locale }, baseUrl).toString())
         }
 
         // Check if user is allowed to sign in
@@ -66,13 +68,13 @@ export default async function callback (req, res) {
         try {
           const signInCallbackResponse = await callbacks.signIn(userOrProfile, account, OAuthProfile)
           if (signInCallbackResponse === false) {
-            return res.redirect(`${baseUrl}${basePath}/error?error=AccessDenied`)
+            return res.redirect(new URLExtended(`${basePath}/error`, { error: 'AccessDenied', locale }, baseUrl).toString())
           } else if (typeof signInCallbackResponse === 'string') {
             return res.redirect(signInCallbackResponse)
           }
         } catch (error) {
           if (error instanceof Error) {
-            return res.redirect(`${baseUrl}${basePath}/error?error=${encodeURIComponent(error.message)}`)
+            return res.redirect(new URLExtended(`${basePath}/error`, { error: error.message, locale }, baseUrl).toString())
           }
           // TODO: Remove in a future major release
           logger.warn('SIGNIN_CALLBACK_REJECT_REDIRECT')
@@ -110,7 +112,7 @@ export default async function callback (req, res) {
         // e.g. option to send users to a new account landing page on initial login
         // Note that the callback URL is preserved, so the journey can still be resumed
         if (isNewUser && pages.newUser) {
-          return res.redirect(`${pages.newUser}${pages.newUser.includes('?') ? '&' : '?'}callbackUrl=${encodeURIComponent(callbackUrl)}`)
+          return res.redirect(new URLExtended(`/${locale ?? ''}${pages.newUser}`, { callbackUrl }).toStringRelative())
         }
 
         // Callback URL is already verified at this point, so safe to use if specified
@@ -118,26 +120,26 @@ export default async function callback (req, res) {
       } catch (error) {
         if (error.name === 'AccountNotLinkedError') {
           // If the email on the account is already linked, but not with this OAuth account
-          return res.redirect(`${baseUrl}${basePath}/error?error=OAuthAccountNotLinked`)
+          return res.redirect(new URLExtended(`${basePath}/error`, { error: 'OAuthAccountNotLinked', locale }, baseUrl).toString())
         } else if (error.name === 'CreateUserError') {
-          return res.redirect(`${baseUrl}${basePath}/error?error=OAuthCreateAccount`)
+          return res.redirect(new URLExtended(`${basePath}/error`, { error: 'OAuthCreateAccount', locale }, baseUrl).toString())
         }
         logger.error('OAUTH_CALLBACK_HANDLER_ERROR', error)
-        return res.redirect(`${baseUrl}${basePath}/error?error=Callback`)
+        return res.redirect(new URLExtended(`${basePath}/error`, { error: 'Callback', locale }, baseUrl).toString())
       }
     } catch (error) {
       if (error.name === 'OAuthCallbackError') {
         logger.error('CALLBACK_OAUTH_ERROR', error)
-        return res.redirect(`${baseUrl}${basePath}/error?error=OAuthCallback`)
+        return res.redirect(new URLExtended(`${basePath}/error`, { error: 'OAuthCallback', locale }, baseUrl).toString())
       }
       logger.error('OAUTH_CALLBACK_ERROR', error)
-      return res.redirect(`${baseUrl}${basePath}/error?error=Callback`)
+      return res.redirect(new URLExtended(`${basePath}/error`, { error: 'Callback', locale }, baseUrl).toString())
     }
   } else if (provider.type === 'email') {
     try {
       if (!adapter) {
         logger.error('EMAIL_REQUIRES_ADAPTER_ERROR')
-        return res.redirect(`${baseUrl}${basePath}/error?error=Configuration`)
+        return res.redirect(new URLExtended(`${basePath}/error`, { error: 'Configuration', locale }, baseUrl).toString())
       }
 
       const { getVerificationRequest, deleteVerificationRequest, getUserByEmail } = await adapter.getAdapter(req.options)
@@ -147,7 +149,7 @@ export default async function callback (req, res) {
       // Verify email and verification token exist in database
       const invite = await getVerificationRequest(email, verificationToken, secret, provider)
       if (!invite) {
-        return res.redirect(`${baseUrl}${basePath}/error?error=Verification`)
+        return res.redirect(new URLExtended(`${basePath}/error`, { error: 'Verification', locale }, baseUrl).toString())
       }
 
       // If verification token is valid, delete verification request token from
@@ -162,13 +164,13 @@ export default async function callback (req, res) {
       try {
         const signInCallbackResponse = await callbacks.signIn(profile, account, { email })
         if (signInCallbackResponse === false) {
-          return res.redirect(`${baseUrl}${basePath}/error?error=AccessDenied`)
+          return res.redirect(new URLExtended(`${basePath}/error`, { error: 'AccessDenied', locale }, baseUrl).toString())
         } else if (typeof signInCallbackResponse === 'string') {
           return res.redirect(signInCallbackResponse)
         }
       } catch (error) {
         if (error instanceof Error) {
-          return res.redirect(`${baseUrl}${basePath}/error?error=${encodeURIComponent(error.message)}`)
+          return res.redirect(new URLExtended(`${basePath}/error`, { error: error.message, locale }, baseUrl).toString())
         }
         // TODO: Remove in a future major release
         logger.warn('SIGNIN_CALLBACK_REJECT_REDIRECT')
@@ -206,27 +208,27 @@ export default async function callback (req, res) {
       // e.g. option to send users to a new account landing page on initial login
       // Note that the callback URL is preserved, so the journey can still be resumed
       if (isNewUser && pages.newUser) {
-        return res.redirect(`${pages.newUser}${pages.newUser.includes('?') ? '&' : '?'}callbackUrl=${encodeURIComponent(callbackUrl)}`)
+        return res.redirect(`${locale ? `/${locale}` : ''}${pages.newUser}${pages.newUser.includes('?') ? '&' : '?'}callbackUrl=${encodeURIComponent(callbackUrl)}`)
       }
 
       // Callback URL is already verified at this point, so safe to use if specified
       return res.redirect(callbackUrl || baseUrl)
     } catch (error) {
       if (error.name === 'CreateUserError') {
-        return res.redirect(`${baseUrl}${basePath}/error?error=EmailCreateAccount`)
+        return res.redirect(new URLExtended(`${basePath}/error`, { error: 'EmailCreateAccount', locale }, baseUrl).toString())
       }
       logger.error('CALLBACK_EMAIL_ERROR', error)
-      return res.redirect(`${baseUrl}${basePath}/error?error=Callback`)
+      return res.redirect(new URLExtended(`${basePath}/error`, { error: 'Callback', locale }, baseUrl).toString())
     }
   } else if (provider.type === 'credentials' && req.method === 'POST') {
     if (!useJwtSession) {
       logger.error('CALLBACK_CREDENTIALS_JWT_ERROR', 'Signin in with credentials is only supported if JSON Web Tokens are enabled')
-      return res.status(500).redirect(`${baseUrl}${basePath}/error?error=Configuration`)
+      return res.status(500).redirect(new URLExtended(`${basePath}/error`, { error: 'Configuration', locale }, baseUrl).toString())
     }
 
     if (!provider.authorize) {
       logger.error('CALLBACK_CREDENTIALS_HANDLER_ERROR', 'Must define an authorize() handler to use credentials authentication provider')
-      return res.status(500).redirect(`${baseUrl}${basePath}/error?error=Configuration`)
+      return res.status(500).redirect(new URLExtended(`${basePath}/error`, { error: 'Configuration', locale }, baseUrl).toString())
     }
 
     const credentials = req.body
@@ -235,11 +237,11 @@ export default async function callback (req, res) {
     try {
       userObjectReturnedFromAuthorizeHandler = await provider.authorize(credentials)
       if (!userObjectReturnedFromAuthorizeHandler) {
-        return res.status(401).redirect(`${baseUrl}${basePath}/error?error=CredentialsSignin&provider=${encodeURIComponent(provider.id)}`)
+        return res.status(401).redirect(new URLExtended(`${basePath}/error`, { error: 'CredentialsSignin', provider: provider.id, locale }, baseUrl).toString())
       }
     } catch (error) {
       if (error instanceof Error) {
-        return res.redirect(`${baseUrl}${basePath}/error?error=${encodeURIComponent(error.message)}`)
+        return res.redirect(new URLExtended(`${basePath}/error`, { error: error.message, locale }, baseUrl).toString())
       }
       return res.redirect(error)
     }
@@ -250,11 +252,11 @@ export default async function callback (req, res) {
     try {
       const signInCallbackResponse = await callbacks.signIn(user, account, credentials)
       if (signInCallbackResponse === false) {
-        return res.status(403).redirect(`${baseUrl}${basePath}/error?error=AccessDenied`)
+        return res.status(403).redirect(new URLExtended(`${basePath}/error`, { error: 'AccessDenied', locale }, baseUrl).toString())
       }
     } catch (error) {
       if (error instanceof Error) {
-        return res.redirect(`${baseUrl}${basePath}/error?error=${encodeURIComponent(error.message)}`)
+        return res.redirect(new URLExtended(`${basePath}/error`, { error: error.message, locale }, baseUrl).toString())
       }
       return res.redirect(error)
     }

@@ -11,6 +11,7 @@
 import { useState, useEffect, useContext, createContext, createElement } from 'react'
 import _logger, { proxyLogger } from '../lib/logger'
 import parseUrl from '../lib/parse-url'
+import { useRouter } from 'next/router'
 
 // This behaviour mirrors the default behaviour for getting the site name that
 // happens server side in server/index.js
@@ -26,6 +27,7 @@ const __NEXTAUTH = {
   basePathServer: parseUrl(process.env.NEXTAUTH_URL_INTERNAL || process.env.NEXTAUTH_URL).basePath,
   keepAlive: 0,
   clientMaxAge: 0,
+  locale: undefined,
   // Properties starting with _ are used for tracking internal app state
   _clientLastSync: 0,
   _clientSyncTimer: null,
@@ -203,8 +205,12 @@ export async function signIn (provider, options = {}, authorizationParams = {}) 
 
   // Redirect to sign in page if no valid provider specified
   if (!(provider in providers)) {
+    const params = new URLSearchParams({
+      callbackUrl
+    })
+    if (__NEXTAUTH.locale) params.append('locale', __NEXTAUTH.locale)
     // If Provider not recognized, redirect to sign in page
-    window.location = `${baseUrl}/signin?callbackUrl=${encodeURIComponent(callbackUrl)}`
+    window.location = `${baseUrl}/signin?${params.toString()}`
     return
   }
   const isCredentials = providers[provider].type === 'credentials'
@@ -226,6 +232,7 @@ export async function signIn (provider, options = {}, authorizationParams = {}) 
       ...options,
       csrfToken: await getCsrfToken(),
       callbackUrl,
+      locale: __NEXTAUTH.locale,
       json: true
     })
   }
@@ -299,7 +306,7 @@ export async function signOut (options = {}) {
 // method is being left in as an alternative, that will be helpful if/when we
 // expose a vanilla JavaScript version that doesn't depend on React.
 /** @type {import(".").SetOptions} */
-export function setOptions ({ baseUrl, basePath, clientMaxAge, keepAlive } = {}) {
+export function setOptions ({ baseUrl, basePath, clientMaxAge, keepAlive, locale } = {}) {
   if (baseUrl) __NEXTAUTH.baseUrl = baseUrl
   if (basePath) __NEXTAUTH.basePath = basePath
   if (clientMaxAge) __NEXTAUTH.clientMaxAge = clientMaxAge
@@ -319,6 +326,9 @@ export function setOptions ({ baseUrl, basePath, clientMaxAge, keepAlive } = {})
       await __NEXTAUTH._getSession({ event: 'timer' })
     }, keepAlive * 1000)
   }
+  if (locale) {
+    __NEXTAUTH.locale = locale
+  }
 }
 
 /**
@@ -330,7 +340,9 @@ export function setOptions ({ baseUrl, basePath, clientMaxAge, keepAlive } = {})
  * @type {import(".").Provider}
  */
 export function Provider ({ children, session, options }) {
-  setOptions(options)
+  // inject locale to options for it to be available later on during auth
+  const { locale } = useRouter()
+  setOptions({ locale, ...options })
   return createElement(
     SessionContext.Provider,
     { value: useSession(session) },

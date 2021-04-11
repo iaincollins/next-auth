@@ -1,12 +1,12 @@
 import { h } from 'preact' // eslint-disable-line no-unused-vars
 
-export default function signout ({ baseUrl, basePath, csrfToken }) {
+export default function signout ({ baseUrl, basePath, csrfToken, texts }) {
   return (
     <div className='signout'>
-      <h1>Are you sure you want to sign out?</h1>
+      <h1>{texts.heading}</h1>
       <form action={`${baseUrl}${basePath}/signout`} method='POST'>
         <input type='hidden' name='csrfToken' value={csrfToken} />
-        <button type='submit'>Sign out</button>
+        <button type='submit'>{texts.submit}</button>
       </form>
     </div>
   )

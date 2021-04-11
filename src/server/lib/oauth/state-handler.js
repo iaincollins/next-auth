@@ -1,6 +1,7 @@
 import { createHash } from 'crypto'
 import logger from '../../../lib/logger'
 import { OAuthCallbackError } from '../../../lib/errors'
+import URLExtended from '../../../lib/url-extended'
 
 /**
  * For OAuth 2.0 flows, if the provider supports state,
@@ -10,7 +11,7 @@ import { OAuthCallbackError } from '../../../lib/errors'
  * @param {import("../..").NextAuthResponse} res
  */
 export async function handleCallback (req, res) {
-  const { csrfToken, provider, baseUrl, basePath } = req.options
+  const { csrfToken, provider, baseUrl, basePath, locale } = req.options
   try {
     if (!provider.protection.includes('state')) { // Provider does not support state, nothing to do.
       return
@@ -29,7 +30,7 @@ export async function handleCallback (req, res) {
     }
   } catch (error) {
     logger.error('STATE_ERROR', error)
-    return res.redirect(`${baseUrl}${basePath}/error?error=OAuthCallback`)
+    return res.redirect(new URLExtended(`${basePath}/error`, { error: 'OAuthCallback', locale }, baseUrl).toString())
   }
 }
 
@@ -39,7 +40,7 @@ export async function handleCallback (req, res) {
  * @param {import("../..").NextAuthResponse} res
  */
 export async function handleSignin (req, res) {
-  const { provider, baseUrl, basePath, csrfToken } = req.options
+  const { provider, baseUrl, basePath, csrfToken, locale } = req.options
   try {
     if (![provider.protection].flat().includes('state')) { // Provider does not support state, nothing to do.
       return
@@ -63,7 +64,7 @@ export async function handleSignin (req, res) {
     )
   } catch (error) {
     logger.error('SIGNIN_OAUTH_ERROR', error)
-    return res.redirect(`${baseUrl}${basePath}/error?error=OAuthSignin`)
+    return res.redirect(new URLExtended(`${basePath}/error`, { error: 'OAuthSignin', locale }, baseUrl).toString())
   }
 }
 

@@ -7,48 +7,49 @@ import { h } from 'preact' // eslint-disable-line no-unused-vars
  *   baseUrl: string
  *   basePath: string
  *   error?: string
+ *   texts: object
  *   res: import("..").NextAuthResponse
  * }} params
  */
-export default function error ({ baseUrl, basePath, error = 'default', res }) {
+export default function error ({ baseUrl, basePath, error = 'default', texts, res }) {
   const signinPageUrl = `${baseUrl}${basePath}/signin`
 
   const errors = {
     default: {
       statusCode: 200,
-      heading: 'Error',
+      heading: texts.default.heading,
       message: <p><a className='site' href={baseUrl}>{baseUrl.replace(/^https?:\/\//, '')}</a></p>
     },
     configuration: {
       statusCode: 500,
-      heading: 'Server error',
+      heading: texts.configuration.heading,
       message: (
         <div>
-          <p>There is a problem with the server configuration.</p>
-          <p>Check the server logs for more information.</p>
+          <p>{texts.configuration.message}</p>
+          <p>{texts.configuration.serverLogHint}</p>
         </div>
       )
     },
     accessdenied: {
       statusCode: 403,
-      heading: 'Access Denied',
+      heading: texts.accessdenied.heading,
       message: (
         <div>
-          <p>You do not have permission to sign in.</p>
-          <p><a className='button' href={signinPageUrl}>Sign in</a></p>
+          <p>{texts.accessdenied.message}</p>
+          <p><a className='button' href={signinPageUrl}>{texts.signIn}</a></p>
         </div>
       )
     },
     verification: {
       statusCode: 403,
-      heading: 'Unable to sign in',
+      heading: texts.verification.heading,
       message: (
         <div>
-          <p>The sign in link is no longer valid.</p>
-          <p>It may have been used already or it may have expired.</p>
+          <p>{texts.verification.message}</p>
+          <p>{texts.verification.expirationHint}</p>
         </div>
       ),
-      signin: <p><a className='button' href={signinPageUrl}>Sign in</a></p>
+      signin: <p><a className='button' href={signinPageUrl}>{texts.signIn}</a></p>
     }
   }
 

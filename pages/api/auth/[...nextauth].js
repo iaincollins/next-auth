@@ -28,7 +28,15 @@ export default NextAuth({
     Providers.Credentials({
       name: 'Credentials',
       credentials: {
-        password: { label: 'Password', type: 'password' }
+        password: {
+          // label: 'Password',
+          // If multi-locale, you can pass translations:
+          label: {
+            en: 'Password',
+            es: 'Password in Spanish'
+          },
+          type: 'password'
+        }
       },
       async authorize (credentials) {
         if (credentials.password === 'password') {
@@ -43,6 +51,25 @@ export default NextAuth({
       }
     })
   ],
+  locales: {
+    // Override default translations per-locale if needed
+    es: {
+      signIn: {
+        title: 'Sign In (in Spanish)',
+        email: 'Email in Spanish',
+        errors: {
+          OAuthSignin: 'Try signing with a different account in Spanish.'
+        }
+      },
+      // You can override default verification request email texts as well
+      email: {
+        subject: 'Sign in to %s (in Spanish)',
+        html: {
+          signIn: 'Sign in (in Spanish)'
+        }
+      }
+    }
+  },
   jwt: {
     encryption: true,
     secret: process.env.SECRET

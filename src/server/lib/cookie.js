@@ -152,6 +152,14 @@ export function defaultCookies (useSecureCookies) {
         path: '/',
         secure: useSecureCookies
       }
+    },
+    locale: {
+      name: `${cookiePrefix}next-auth.locale`,
+      options: {
+        sameSite: 'lax',
+        path: '/',
+        secure: useSecureCookies
+      }
     }
   }
 }
