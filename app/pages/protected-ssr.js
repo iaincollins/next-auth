@@ -1,7 +1,8 @@
 // This is an example of how to protect content using server rendering
-import { getSession } from 'next-auth/client'
+import { getServerSession } from 'next-auth'
 import Layout from '../components/layout'
 import AccessDenied from '../components/access-denied'
+import nextAuthConfig from '../next-auth.config'
 
 export default function Page ({ content, session }) {
   // If no session exists, display access denied message
@@ -17,7 +18,8 @@ export default function Page ({ content, session }) {
 }
 
 export async function getServerSideProps (context) {
-  const session = await getSession(context)
+  const session = await getServerSession(context, nextAuthConfig)
+  
   let content = null
 
   if (session) {

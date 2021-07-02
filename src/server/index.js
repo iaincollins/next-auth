@@ -1,17 +1,11 @@
-import adapters from "../adapters"
-import jwt from "../lib/jwt"
-import parseUrl from "../lib/parse-url"
-import logger, { setLogger } from "../lib/logger"
-import * as cookie from "./lib/cookie"
-import * as defaultEvents from "./lib/default-events"
-import * as defaultCallbacks from "./lib/default-callbacks"
-import parseProviders from "./lib/providers"
+import logger from "../lib/logger"
 import * as routes from "./routes"
 import renderPage from "./pages"
-import createSecret from "./lib/create-secret"
+import initReqOptions from "./lib/init-req-options"
 import callbackUrlHandler from "./lib/callback-url-handler"
 import extendRes from "./lib/extend-res"
 import csrfTokenHandler from "./lib/csrf-token-handler"
+import session from "./lib/session"
 import * as pkce from "./lib/oauth/pkce-handler"
 import * as state from "./lib/oauth/state-handler"
 
@@ -22,26 +16,52 @@ if (!process.env.NEXTAUTH_URL) {
 }
 
 /**
+ * @param {import("next").NextPageContext} ctx
+ * @param {import("types").NextAuthOptions} userOptions
+ */
+ export async function getServerSession(ctx, userOptions) {
+  const { req, res } = ctx
+
+  initReqOptions(req, userOptions)
+
+  return session(req, res)
+}
+
+/**
+ * @param {import("next").NextPageContext} ctx
+ * @param {import("types").NextAuthOptions} userOptions
+ */
+export async function getServerProviders(ctx, userOptions) {
+  const { req } = ctx
+
+  initReqOptions(req, userOptions)
+
+  return req.options.providers.reduce(
+    (acc, { id, name, type, signinUrl, callbackUrl }) => {
+      acc[id] = { id, name, type, signinUrl, callbackUrl }
+      return acc
+    },
+    {}
+  )
+}
+
+/**
  * @param {import("next").NextApiRequest} req
  * @param {import("next").NextApiResponse} res
  * @param {import("types").NextAuthOptions} userOptions
  */
 async function NextAuthHandler(req, res, userOptions) {
-  if (userOptions.logger) {
-    setLogger(userOptions.logger)
-  }
-  // If debug enabled, set ENV VAR so that logger logs debug messages
-  if (userOptions.debug) {
-    process.env._NEXTAUTH_DEBUG = true
-  }
-
   // To the best of my knowledge, we need to return a promise here
   // to avoid early termination of calls to the serverless function
   // (and then return that promise when we are done) - eslint
   // complains but I'm not sure there is another way to do this.
   // eslint-disable-next-line no-async-promise-executor
   return new Promise(async (resolve) => {
+    initReqOptions(req, userOptions)
+
     extendRes(req, res, resolve)
+
+    initReqOptions(req, res, userOptions)
 
     if (!req.query.nextauth) {
       const error =
@@ -58,27 +78,7 @@ async function NextAuthHandler(req, res, userOptions) {
       error = nextauth[1],
     } = req.query
 
-    // @todo refactor all existing references to baseUrl and basePath
-    const { basePath, baseUrl } = parseUrl(
-      process.env.NEXTAUTH_URL || process.env.VERCEL_URL
-    )
-
-    const cookies = {
-      ...cookie.defaultCookies(
-        userOptions.useSecureCookies || baseUrl.startsWith("https://")
-      ),
-      // Allow user cookie options to override any cookie settings above
-      ...userOptions.cookies,
-    }
-
-    const secret = createSecret({ userOptions, basePath, baseUrl })
-
-    const providers = parseProviders({
-      providers: userOptions.providers,
-      baseUrl,
-      basePath,
-    })
-    const provider = providers.find(({ id }) => id === providerId)
+    const provider = req.options.providers.find(({ id }) => id === providerId)
 
     // Protection only works on OAuth 2.x providers
     // TODO:
@@ -100,67 +100,20 @@ async function NextAuthHandler(req, res, userOptions) {
       }
     }
 
-    const maxAge = 30 * 24 * 60 * 60 // Sessions expire after 30 days of being idle
-
-    // Parse database / adapter
-    // If adapter is provided, use it (advanced usage, overrides database)
-    // If database URI or config object is provided, use it (simple usage)
-    const adapter =
-      userOptions.adapter ??
-      (userOptions.database && adapters.Default(userOptions.database))
-
-    // User provided options are overriden by other options,
-    // except for the options with special handling above
+    // Attach additional options needed for the auth flow.
     req.options = {
-      debug: false,
       pages: {},
       theme: "auto",
-      // Custom options override defaults
-      ...userOptions,
-      // These computed settings can have values in userOptions but we override them
-      // and are request-specific.
-      adapter,
-      baseUrl,
-      basePath,
+      ...req.options,
       action,
       provider,
-      cookies,
-      secret,
-      providers,
-      // Session options
-      session: {
-        jwt: !adapter, // If no adapter specified, force use of JSON Web Tokens (stateless)
-        maxAge,
-        updateAge: 24 * 60 * 60, // Sessions updated only if session is greater than this value (0 = always, 24*60*60 = every 24 hours)
-        ...userOptions.session,
-      },
-      // JWT options
-      jwt: {
-        secret, // Use application secret if no keys specified
-        maxAge, // same as session maxAge,
-        encode: jwt.encode,
-        decode: jwt.decode,
-        ...userOptions.jwt,
-      },
-      // Event messages
-      events: {
-        ...defaultEvents,
-        ...userOptions.events,
-      },
-      // Callback functions
-      callbacks: {
-        ...defaultCallbacks,
-        ...userOptions.callbacks,
-      },
-      pkce: {},
-      logger,
     }
 
     csrfTokenHandler(req, res)
     await callbackUrlHandler(req, res)
 
     const render = renderPage(req, res)
-    const { pages } = req.options
+    const { pages, baseUrl, basePath } = req.options
 
     if (req.method === "GET") {
       switch (action) {
