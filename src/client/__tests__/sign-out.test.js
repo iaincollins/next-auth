@@ -101,12 +101,7 @@ test("will broadcast the signout event to other tabs", async () => {
 
     expect(broadcastCalls).toHaveLength(1)
     expect(broadcastedEvent.eventName).toBe("nextauth.message")
-    expect(broadcastedEvent.value).toStrictEqual({
-      data: {
-        trigger: "signout",
-      },
-      event: "session",
-    })
+    expect(broadcastedEvent.value).toStrictEqual({ reason: "signOut" })
   })
 })
 

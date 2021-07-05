@@ -47,10 +47,11 @@ export function useSession() {
   return React.useContext(SessionContext)
 }
 
-export async function getSession(ctx) {
-  const session = await _fetchData("session", ctx)
-  if (ctx?.broadcast ?? true) {
-    broadcast.post({ event: "session", data: { trigger: "getSession" } })
+/** @param {import("types/react-client").GetSessionOptions} [params] */
+export async function getSession(params) {
+  const session = await _fetchData("session", params)
+  if (params?.broadcast ?? true) {
+    broadcast.post({ reason: "getSession" })
   }
   return session
 }
@@ -143,7 +144,8 @@ export async function signOut(options = {}) {
   }
   const res = await fetch(`${baseUrl}/signout`, fetchOptions)
   const data = await res.json()
-  broadcast.post({ event: "session", data: { trigger: "signout" } })
+
+  broadcast.post({ reason: "signOut" })
 
   if (redirect) {
     const url = data.url ?? callbackUrl
@@ -160,7 +162,24 @@ export async function signOut(options = {}) {
 
 /** @param {import("types/react-client").SessionProviderProps} props */
 export function SessionProvider(props) {
-  const { children, baseUrl, basePath, staleTime = 0 } = props
+  const {
+    children,
+    baseUrl,
+    basePath,
+    staleTime = 0,
+    refetchOnWindowFocus = true,
+    refetchInterval,
+  } = props
+
+  let broadcastSession
+  let broadcastSignOut
+  if (typeof props.broadcast === "boolean") {
+    broadcastSession = props.broadcast
+    broadcastSignOut = props.broadcast
+  } else {
+    broadcastSession = props.broadcast?.session ?? true
+    broadcastSignOut = props.broadcast?.signOut ?? true
+  }
 
   if (baseUrl) __NEXTAUTH.baseUrl = baseUrl
   if (basePath) __NEXTAUTH.basePath = basePath
@@ -185,19 +204,12 @@ export function SessionProvider(props) {
   React.useEffect(() => {
     __NEXTAUTH._getSession = async ({ event } = {}) => {
       try {
-        const storageEvent = event === "storage"
         // We should always update if we don't have a client session yet
         // or if there are events from other tabs/windows
-        if (storageEvent || __NEXTAUTH._session === undefined) {
-          __NEXTAUTH._lastSync = _now()
-          __NEXTAUTH._session = await getSession({
-            broadcast: !storageEvent,
-          })
-          setSession(__NEXTAUTH._session)
-          return
-        }
+        const initialOrShouldSync =
+          event === "storage" || __NEXTAUTH._session === undefined
 
-        if (
+        const notStale =
           // If there is no time defined for when a session should be considered
           // stale, then it's okay to use the value we have until an event is
           // triggered which updates it
@@ -209,13 +221,20 @@ export function SessionProvider(props) {
           (staleTime > 0 && __NEXTAUTH._session === null) ||
           // Bail out early if the client session is not stale yet
           (staleTime > 0 && _now() < __NEXTAUTH._lastSync + staleTime)
-        ) {
+
+        if (!initialOrShouldSync && notStale) {
           return
         }
 
         // An event or session staleness occurred, update the client session.
         __NEXTAUTH._lastSync = _now()
-        __NEXTAUTH._session = await getSession()
+
+        __NEXTAUTH._session = await getSession({
+          // Refetch and storage events should not affect
+          // other tabs/windows to avoid infinite loops
+          broadcast:
+            broadcastSession && event !== "refetch" && event !== "storage",
+        })
         setSession(__NEXTAUTH._session)
       } catch (error) {
         logger.error("CLIENT_SESSION_ERROR", error)
@@ -225,26 +244,25 @@ export function SessionProvider(props) {
     }
 
     __NEXTAUTH._getSession()
-  }, [staleTime])
+  }, [staleTime, broadcastSession])
 
   React.useEffect(() => {
     // Listen for storage events and update session if event fired from
     // another window (but suppress firing another event to avoid a loop)
     // Fetch new session data but tell it to not to fire another event to
     // avoid an infinite loop.
-    // Note: We could pass session data through and do something like
-    // `setData(message.data)` but that can cause problems depending
-    // on how the session object is being used in the client; it is
-    // more robust to have each window/tab fetch it's own copy of the
-    // session object rather than share it across instances.
-    const unsubscribe = broadcast.receive(
-      async () => await __NEXTAUTH._getSession({ event: "storage" })
-    )
-
-    return () => unsubscribe()
-  }, [])
+    return broadcast.receive(async ({ reason }) => {
+      if (
+        (reason !== "signOut" && broadcastSession) ||
+        (reason === "signOut" && broadcastSignOut)
+      ) {
+        await __NEXTAUTH._getSession({ event: "storage" })
+      }
+    })
+  }, [broadcastSession, broadcastSignOut])
 
   React.useEffect(() => {
+    if (!refetchOnWindowFocus) return
     // Set up visibility change
     // Listen for document visibility change events and
     // if visibility of the document changes, re-fetch the session.
@@ -254,20 +272,18 @@ export function SessionProvider(props) {
     document.addEventListener("visibilitychange", visibilityHandler, false)
     return () =>
       document.removeEventListener("visibilitychange", visibilityHandler, false)
-  }, [])
+  }, [refetchOnWindowFocus])
 
   React.useEffect(() => {
-    const { refetchInterval } = props
+    if (!refetchInterval) return
     // Set up polling
-    if (refetchInterval) {
-      const refetchIntervalTimer = setInterval(async () => {
-        if (__NEXTAUTH._session) {
-          await __NEXTAUTH._getSession({ event: "poll" })
-        }
-      }, refetchInterval * 1000)
-      return () => clearInterval(refetchIntervalTimer)
-    }
-  }, [props.refetchInterval])
+    const refetchIntervalTimer = setInterval(async () => {
+      if (__NEXTAUTH._session) {
+        await __NEXTAUTH._getSession({ event: "refetch" })
+      }
+    }, refetchInterval * 1000)
+    return () => clearInterval(refetchIntervalTimer)
+  }, [refetchInterval])
 
   const value = React.useMemo(() => [session, loading], [session, loading])
 
@@ -321,26 +337,19 @@ function _now() {
  * Only not using it directly, because Safari does not support it.
  *
  * https://caniuse.com/?search=broadcastchannel
+ *
+ * @type {import("types/internals/react").BroadcastChannel}
  */
 function BroadcastChannel(name = "nextauth.message") {
   return {
-    /**
-     * Get notified by other tabs/windows.
-     * @param {(message: import("types/internals/react").BroadcastMessage) => void} onReceive
-     */
     receive(onReceive) {
       const handler = (event) => {
         if (event.key !== name) return
-        /** @type {import("types/internals/react").BroadcastMessage} */
-        const message = JSON.parse(event.newValue)
-        if (message?.event !== "session" || !message?.data) return
-
-        onReceive(message)
+        onReceive(JSON.parse(event.newValue))
       }
       window.addEventListener("storage", handler)
       return () => window.removeEventListener("storage", handler)
     },
-    /** Notify other tabs/windows. */
     post(message) {
       if (typeof window === "undefined") return
       localStorage.setItem(

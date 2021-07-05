@@ -51,12 +51,7 @@ test("if it can fetch the session, it should store it in `localStorage`", async 
   expect(broadcastCalls).toHaveLength(1)
   expect(broadcastCalls).toHaveLength(1)
   expect(broadcastedEvent.eventName).toBe("nextauth.message")
-  expect(broadcastedEvent.value).toStrictEqual({
-    data: {
-      trigger: "getSession",
-    },
-    event: "session",
-  })
+  expect(broadcastedEvent.value).toStrictEqual({ reason: "getSession" })
 })
 
 test("if there's an error fetching the session, it should log it", async () => {

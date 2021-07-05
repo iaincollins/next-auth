@@ -306,7 +306,7 @@ where `data.url` is the validated url you can redirect the user to without any f
 
 ## SessionProvider
 
-Using the supplied `<SessionProvider>` allows instances of `useSession()` to share the session object across components, by using [React Context](https://reactjs.org/docs/context.html) under the hood. It also takes care of keeping the session updated and synced between tabs/windows.
+Using the supplied `<SessionProvider>` allows instances of `useSession()` to share the session object across components, by using [React Context](https://reactjs.org/docs/context.html) under the hood. It also takes care of keeping the session updated and synced between tabs/windows by default.
 
 ```jsx title="pages/_app.js"
 import { SessionProvider } from "next-auth/react"
@@ -341,19 +341,14 @@ export async function getServerSideProps(ctx) {
 }
 ```
 
-If every one of your pages needs to be protected, you can do this in `_app`, otherwise you can do it on a page-by-page basis. Alternatively, you can do per page authentication checks client side, instead of having each auth check be blocking (SSR) by using the method described below in [alternative client session handling](#custom-client-session-handling).
+If every one of your pages needs to be protected, you can do this by using `getInitialProps` in `_app`, otherwise you can do it on a page-by-page basis. Alternatively, you can do per page authentication checks client side, instead of having each auth check be blocking (SSR) by using the method described below in [alternative client session handling](#custom-client-session-handling).
 
-### Options
+If you have session expiry times of 30 days (the default) or more then you probably don't need to change any of the default options in the `SessionProvider`. If you need to, you can can trigger an update of the session object across all tabs/windows by calling `getSession()` from a client side function.
 
-The session state is automatically synchronized across all open tabs/windows and they are all updated whenever they gain or lose focus or the state changes in any of them (e.g. a user signs in or out).
-
-If you have session expiry times of 30 days (the default) or more then you probably don't need to change any of the default options in the Provider. If you need to, you can can trigger an update of the session object across all tabs/windows by calling `getSession()` from a client side function.
-
-However, if you need to customize the session behavior and/or are using short session expiry times, you can pass options to the provider to customize the behavior of the `useSession()` hook.
+However, if you need to customize the session behavior and/or are using short session expiry times, you can pass options to the `SessionProvider` to customize the behavior of the `useSession()` hook.
 
 ```jsx title="pages/_app.js"
 import { SessionProvider } from "next-auth/react"
-
 
 export default function App({
   Component, 
@@ -366,6 +361,12 @@ export default function App({
       staleTime={60}
       // Re-fetch session every 5 minutes
       refetchInterval={5 * 60}
+      broadcast={{
+        // Do not sync session across tabs/windows
+        session: false,
+        // If you sign out in one tab/window, this will reflect on other tabs/windows as well
+        signOut: true
+      }}
     >
       <Component {...pageProps} />
     </SessionProvider>
@@ -373,15 +374,8 @@ export default function App({
 }
 ```
 
-:::note
-**These options have no effect on clients that are not signed in.**
 
-Every tab/window maintains its own copy of the local session state; the session is not stored in shared storage like localStorage or sessionStorage. Any update in one tab/window triggers a message to other tabs/windows to update their own session state.
-
-Using low values for `staleTime` or `refetchInterval` will increase network traffic and load on authenticated clients and may impact hosting costs and performance.
-:::
-
-#### Stale time
+### Stale time
 
 The `staleTime` option is the maximum age a session data can be on the client before it is considered stale.
 
@@ -393,7 +387,13 @@ Unless you have a short session expiry time (e.g. < 24 hours) you probably don't
 
 The value for `staleTime` should always be lower than the value of the session `maxAge` [session option](/configuration/options#session).
 
-#### Refetch interval
+:::note
+**This option has no effect on clients that are not signed in.**
+
+Using low values for `staleTime` will increase network traffic and load on authenticated clients and may impact hosting costs and performance.
+:::
+
+### Refetch interval
 
 The `refetchInterval` option can be used to contact the server to avoid a session expiring.
 
@@ -406,6 +406,32 @@ The value for `refetchInterval` should always be lower than the value of the ses
 :::note
 See [**the Next.js documentation**](https://nextjs.org/docs/advanced-features/custom-app) for more information on **\_app.js** in Next.js applications.
 :::
+
+:::note
+**This option has no effect on clients that are not signed in.**
+
+Using low values for `refetchInterval` will increase network traffic and load on authenticated clients and may impact hosting costs and performance.
+:::
+
+
+### Session syncing (broadcasting)
+
+By default, the session state is automatically synchronized across all open tabs/windows and they are all updated whenever they gain or lose focus or the state changes in any of them (e.g. a user signs in or out).
+
+You can control this behavior in multiple ways.
+
+If you do not wish any kind of tab/window synchronization, simply set `broadcast={false}`.
+
+If you need more granular control of the different broadcasting events, you can use an object form:
+
+```jsx
+broadcast={{
+  session: false,
+  signOut: true
+}}
+```
+
+The above example will make sure that session is not synced whenever it is updated (eg.: it became stale and updated in the background, or when the window gains focus), while `signOut: true` still clears the session state for all other open tabs/windows.
 
 ## Alternatives
 
