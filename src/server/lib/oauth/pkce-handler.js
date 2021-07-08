@@ -36,7 +36,11 @@ export async function handleCallback (req, res) {
       pkceLength: PKCE_LENGTH,
       method: PKCE_CODE_CHALLENGE_METHOD
     })
-    cookie.set(res, cookies.pkceCodeVerifier.name, null, { maxAge: 0 }) // remove PKCE after it has been used
+    // remove PKCE after it has been used
+    cookie.set(res, cookies.pkceCodeVerifier.name, "", { 
+      ...cookies.pkceCodeVerifier.options,
+      maxAge: 0 
+    })
   } catch (error) {
     logger.error('CALLBACK_OAUTH_ERROR', error)
     return res.redirect(`${baseUrl}${basePath}/error?error=OAuthCallback`)
