@@ -257,3 +257,9 @@ Providers.Zoho({
   clientId: "foo123",
   clientSecret: "bar123",
 })
+
+// $ExpectType OAuthConfig<Profile>
+Providers.Zoho({
+  clientId: "foo123",
+  clientSecret: "bar123",
+})

@@ -218,6 +218,10 @@ async function getOAuth2 (provider, accessToken, results) {
   let httpMethod = 'GET'
   const headers = { ...provider.headers }
 
+  if (provider.authHeaders) {
+    Object.assign(headers, provider.authHeaders({ accessToken }))
+  }
+
   if (this._useAuthorizationHeaderForGET) {
     headers.Authorization = this.buildAuthHeader(accessToken)
 

@@ -33,6 +33,7 @@ export interface OAuthConfig<P extends Record<string, unknown> = Profile>
   requestTokenUrl?: string
   authorizationUrl: string
   profileUrl: string
+  authHeaders?(info: { accessToken: string }): Record<string, string>,
   profile(profile: P, tokens: TokenSet): Awaitable<User & { id: string }>
   protection?: ProtectionType | ProtectionType[]
   clientId: string
@@ -99,6 +100,7 @@ export type OAuthProviderType =
   | "WordPress"
   | "WorkOS"
   | "Yandex"
+  | "Yuque"
   | "Zoho"
   | "Zoom"
 
