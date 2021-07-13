@@ -10,6 +10,7 @@
 
 // eslint-disable-next-line no-use-before-define
 import * as React from "react"
+import 'navigator.locks'
 import _logger, { proxyLogger } from "../lib/logger"
 import parseUrl from "../lib/parse-url"
 
@@ -73,11 +74,17 @@ export function useSession(options = {}) {
 }
 
 export async function getSession(ctx) {
-  const session = await _fetchData("session", ctx)
-  if (ctx?.broadcast ?? true) {
-    broadcast.post({ event: "session", data: { trigger: "getSession" } })
+  if (typeof window === 'undefined') {
+    const session = await _fetchData("session", ctx)
+    return session
   }
-  return session
+  return navigator.locks.request('NEXT_AUTH:GET_SESSION', async () => {
+    const session = await _fetchData("session", ctx)
+    if (ctx?.broadcast ?? true) {
+      broadcast.post({ event: "session", data: { trigger: "getSession" } })
+    }
+    return session
+  })
 }
 
 export async function getCsrfToken(ctx) {
