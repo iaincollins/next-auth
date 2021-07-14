@@ -14,8 +14,8 @@
     "generate-providers": "node ./scripts/generate-providers.js"
   },
   "dependencies": {
-    "@docusaurus/core": "^2.0.0-beta.2",
-    "@docusaurus/preset-classic": "^2.0.0-beta.2",
+    "@docusaurus/core": "^2.0.0-beta.7babfe036",
+    "@docusaurus/preset-classic": "^2.0.0-beta.7babfe036",
     "classnames": "^2.3.1",
     "lodash.times": "^4.3.2",
     "react": "^17.0.2",

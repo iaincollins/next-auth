@@ -10,6 +10,7 @@ module.exports = {
         "getting-started/client",
         "getting-started/rest-api",
         "getting-started/typescript",
+        "getting-started/upgrade-v4",
       ],
     },
     {
