@@ -422,6 +422,7 @@ If you use this feature, you will likely want to create conditional behaviour to
 
 :::tip
 An example of a use case for this option is to support sharing session tokens across subdomains.
+domain setting is very important, it should have . at the beginning and then your domain name
 :::
 
 #### Example
@@ -434,7 +435,8 @@ cookies: {
       httpOnly: true,
       sameSite: 'lax',
       path: '/',
-      secure: true
+      secure: true,
+      domain:'.yourwebsite.com'
     }
   },
   callbackUrl: {
@@ -467,5 +469,5 @@ cookies: {
 ```
 
 :::warning
-Using a custom cookie policy may introduce security flaws into your application and is intended as an option for advanced users who understand the implications. Using this option is not recommended.
+Using a custom cookie policy may introduce security flaws into your application and is intended as an option for advanced users who understand the implications. Using this option is not recommended. 
 :::
