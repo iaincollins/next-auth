@@ -221,7 +221,6 @@ export function SessionProvider(props) {
           setSession(__NEXTAUTH._session)
           return
         }
-
         if (
           // If there is no time defined for when a session should be considered
           // stale, then it's okay to use the value we have until an event is
@@ -229,7 +228,7 @@ export function SessionProvider(props) {
           (staleTime === 0 && !event) ||
           // If the client doesn't have a session then we don't need to call
           // the server to check if it does (if they have signed in via another
-          // tab or window that will come through as a "stroage" event
+          // tab or window that will come through as a "storage" event
           // event anyway)
           (staleTime > 0 && __NEXTAUTH._session === null) ||
           // Bail out early if the client session is not stale yet
@@ -270,12 +269,13 @@ export function SessionProvider(props) {
   }, [])
 
   React.useEffect(() => {
-    // Set up visibility change
-    // Listen for document visibility change events and
-    // if visibility of the document changes, re-fetch the session.
+    // Listen for when the page is visible, if the user switches tabs
+    // and makes our tab visible again, re-fetch the session.
     const visibilityHandler = () => {
-      !document.hidden && __NEXTAUTH._getSession({ event: "visibilitychange" })
+      if (document.visibilityState === "visible")
+        __NEXTAUTH._getSession({ event: "visibilitychange" })
     }
+
     document.addEventListener("visibilitychange", visibilityHandler, false)
     return () =>
       document.removeEventListener("visibilitychange", visibilityHandler, false)
