@@ -11,6 +11,7 @@ import {
   NextApiResponse,
   NextApiHandler,
 } from "./internals/utils"
+import { TokenSetParameters } from "openid-client"
 
 /**
  * Configure your NextAuth instance
@@ -236,23 +237,13 @@ export interface LoggerInstance {
  * Some of them are available with different casing,
  * but they refer to the same value.
  */
-export interface TokenSet {
-  accessToken: string
-  /** Kept for historical reasons, check out `expires_in` */
-  accessTokenExpires: null
-  idToken?: string
-  refreshToken?: string
-  access_token: string
-  expires_in?: number | null
-  refresh_token?: string
-  id_token?: string
-}
+export type TokenSet = TokenSetParameters
 
 /**
  * Usually contains information about the provider being used
  * and also extends `TokenSet`, which is different tokens returned by OAuth Providers.
  */
-export interface Account extends TokenSet, Record<string, unknown> {
+export interface Account extends Partial<TokenSet> {
   id: string
   provider: string
   type: string

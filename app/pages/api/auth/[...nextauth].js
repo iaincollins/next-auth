@@ -40,12 +40,10 @@ export default NextAuth({
       clientId: process.env.AUTH0_ID,
       clientSecret: process.env.AUTH0_SECRET,
       domain: process.env.AUTH0_DOMAIN,
-      // Used to debug https://github.com/nextauthjs/next-auth/issues/1664
-      // checks: ["pkce", "state"],
-      // authorizationParams: {
-      //   response_mode: 'form_post'
-      // }
-      checks: ["pkce"],
+      checks: ["pkce", "state"],
+      // params: {
+      //   response_mode: "form_post",
+      // },
     }),
     TwitterProvider({
       clientId: process.env.TWITTER_ID,
@@ -73,6 +71,6 @@ export default NextAuth({
     encryption: true,
     secret: process.env.SECRET,
   },
-  debug: false,
+  debug: true,
   theme: "auto",
 })

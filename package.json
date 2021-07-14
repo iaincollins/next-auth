@@ -66,9 +66,8 @@
     "@babel/runtime": "^7.14.6",
     "futoin-hkdf": "^1.3.3",
     "jose": "^1.27.2",
-    "jsonwebtoken": "^8.5.1",
     "oauth": "^0.9.15",
-    "pkce-challenge": "^2.2.0",
+    "openid-client": "^4.7.4",
     "preact": "^10.5.13",
     "preact-render-to-string": "^5.1.19"
   },
@@ -76,9 +75,6 @@
     "nodemailer": "^6.6.2",
     "react": "^17.0.2",
     "react-dom": "^17.0.2"
-  },
-  "peerOptionalDependencies": {
-    "nodemailer": "^6.6.2"
   },
   "peerDependenciesMeta": {
     "nodemailer": {
@@ -151,6 +147,9 @@
       "localStorage": "readonly",
       "location": "readonly",
       "fetch": "readonly"
+    },
+    "rules": {
+      "camelcase": "off"
     },
     "overrides": [
       {
