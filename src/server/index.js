@@ -2,7 +2,6 @@ import jwt from "../lib/jwt"
 import parseUrl from "../lib/parse-url"
 import logger, { setLogger } from "../lib/logger"
 import * as cookie from "./lib/cookie"
-import { withErrorHandling, defaultEvents } from "./lib/default-events"
 import * as defaultCallbacks from "./lib/default-callbacks"
 import parseProviders from "./lib/providers"
 import * as routes from "./routes"
@@ -13,6 +12,7 @@ import extendRes from "./lib/extend-res"
 import csrfTokenHandler from "./lib/csrf-token-handler"
 import * as pkce from "./lib/oauth/pkce-handler"
 import * as state from "./lib/oauth/state-handler"
+import { eventsErrorHandler, adapterErrorHandler } from "src/lib/errors"
 
 // To work properly in production with OAuth providers the NEXTAUTH_URL
 // environment variable must be set.
@@ -89,11 +89,12 @@ async function NextAuthHandler(req, res, userOptions) {
       provider.checks = ["state"]
     }
 
-    const maxAge = 30 * 24 * 60 * 60 // Sessions expire after 30 days of being idle
+    const maxAge = 30 * 24 * 60 * 60 // Sessions expire after 30 days of being idle by default
 
     // User provided options are overriden by other options,
     // except for the options with special handling above
-    req.options = {
+    /** @type {import("types/internals").InternalOptions} */
+    const options = {
       debug: false,
       pages: {},
       theme: "auto",
@@ -112,7 +113,7 @@ async function NextAuthHandler(req, res, userOptions) {
       session: {
         jwt: !userOptions.adapter, // If no adapter specified, force use of JSON Web Tokens (stateless)
         maxAge,
-        updateAge: 24 * 60 * 60, // Sessions updated only if session is greater than this value (0 = always, 24*60*60 = every 24 hours)
+        updateAge: 24 * 60 * 60,
         ...userOptions.session,
       },
       // JWT options
@@ -124,10 +125,8 @@ async function NextAuthHandler(req, res, userOptions) {
         ...userOptions.jwt,
       },
       // Event messages
-      events: withErrorHandling(
-        { ...defaultEvents, ...userOptions.events },
-        logger
-      ),
+      events: eventsErrorHandler(userOptions.events ?? {}, logger),
+      adapter: adapterErrorHandler(userOptions.adapter, logger),
       // Callback functions
       callbacks: {
         ...defaultCallbacks,
@@ -136,6 +135,8 @@ async function NextAuthHandler(req, res, userOptions) {
       pkce: {},
       logger,
     }
+
+    req.options = options
 
     csrfTokenHandler(req, res)
     await callbackUrlHandler(req, res)

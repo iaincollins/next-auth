@@ -1,7 +1,7 @@
 import oAuthCallback from "../lib/oauth/callback"
 import callbackHandler from "../lib/callback-handler"
 import * as cookie from "../lib/cookie"
-import adapterErrorHandler from "../../adapters/error-handler"
+import { hashToken } from "../lib/utils"
 
 /**
  * Handle callbacks from login services
@@ -13,7 +13,6 @@ export default async function callback(req, res) {
     adapter,
     baseUrl,
     basePath,
-    secret,
     cookies,
     callbackUrl,
     pages,
@@ -56,14 +55,13 @@ export default async function callback(req, res) {
         // (that just means it's a new user signing in for the first time).
         let userOrProfile = profile
         if (adapter) {
-          const { getUserByProviderAccountId } = adapterErrorHandler(
-            await adapter.getAdapter(req.options),
-            logger
-          )
+          const { getUserByProviderAccountId } = adapter
+
           const userFromProviderAccountId = await getUserByProviderAccountId(
             account.provider,
             account.id
           )
+
           if (userFromProviderAccountId) {
             userOrProfile = userFromProviderAccountId
           }
@@ -127,12 +125,12 @@ export default async function callback(req, res) {
         } else {
           // Save Session Token in cookie
           cookie.set(res, cookies.sessionToken.name, session.sessionToken, {
-            expires: session.expires || null,
+            expires: session.expires,
             ...cookies.sessionToken.options,
           })
         }
 
-        await events.signIn({ user, account, profile, isNewUser })
+        await events.signIn?.({ user, account, profile, isNewUser })
 
         // Handle first logins on new accounts
         // e.g. option to send users to a new account landing page on initial login
@@ -172,44 +170,37 @@ export default async function callback(req, res) {
   } else if (provider.type === "email") {
     try {
       if (!adapter) {
-        logger.error("EMAIL_REQUIRES_ADAPTER_ERROR")
+        logger.error(
+          "EMAIL_REQUIRES_ADAPTER_ERROR",
+          new Error("E-mail login requires an adapter but it was undefined")
+        )
         return res.redirect(`${baseUrl}${basePath}/error?error=Configuration`)
       }
 
-      const {
-        getVerificationRequest,
-        deleteVerificationRequest,
-        getUserByEmail,
-      } = adapterErrorHandler(await adapter.getAdapter(req.options), logger)
-      const verificationToken = req.query.token
-      const email = req.query.email
+      const { useVerificationToken, getUserByEmail } = adapter
 
-      // Verify email and verification token exist in database
-      const invite = await getVerificationRequest(
-        email,
-        verificationToken,
-        secret,
-        provider
-      )
-      if (!invite) {
+      const token = req.query.token
+      const identifier = req.query.email
+
+      const invite = await useVerificationToken({
+        identifier,
+        token: hashToken(token, req.options),
+      })
+
+      const invalidInvite = !invite || invite.expires.valueOf() < Date.now()
+      if (invalidInvite) {
         return res.redirect(`${baseUrl}${basePath}/error?error=Verification`)
       }
 
-      // If verification token is valid, delete verification request token from
-      // the database so it cannot be used again
-      await deleteVerificationRequest(
-        email,
-        verificationToken,
-        secret,
-        provider
-      )
-
       // If is an existing user return a user object (otherwise use placeholder)
-      const profile = (await getUserByEmail(email)) || { email }
+      const profile = (identifier && (await getUserByEmail(identifier))) ?? {
+        email: identifier,
+      }
+
       const account = {
         id: provider.id,
         type: "email",
-        providerAccountId: email,
+        providerAccountId: identifier,
       }
 
       // Check if user is allowed to sign in
@@ -217,7 +208,7 @@ export default async function callback(req, res) {
         const signInCallbackResponse = await callbacks.signIn({
           user: profile,
           account,
-          email: { email },
+          email: { email: identifier },
         })
         if (!signInCallbackResponse) {
           return res.redirect(`${baseUrl}${basePath}/error?error=AccessDenied`)
@@ -269,12 +260,12 @@ export default async function callback(req, res) {
       } else {
         // Save Session Token in cookie
         cookie.set(res, cookies.sessionToken.name, session.sessionToken, {
-          expires: session.expires || null,
+          expires: session.expires,
           ...cookies.sessionToken.options,
         })
       }
 
-      await events.signIn({ user, account, profile, isNewUser })
+      await events.signIn?.({ user, account, profile, isNewUser })
 
       // Handle first logins on new accounts
       // e.g. option to send users to a new account landing page on initial login
@@ -396,7 +387,7 @@ export default async function callback(req, res) {
       ...cookies.sessionToken.options,
     })
 
-    await events.signIn({ user, account })
+    await events.signIn?.({ user, account })
 
     return res.redirect(callbackUrl || baseUrl)
   }

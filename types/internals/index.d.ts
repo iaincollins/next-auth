@@ -8,12 +8,17 @@ import {
   SessionOptions,
   Theme,
 } from ".."
-import { AppProvider } from "../providers"
-import { JWTOptions } from "next-auth/jwt"
-import { Adapter } from "next-auth/adapters"
+import { Provider } from "../providers"
+import { JWTOptions } from "../jwt"
+import { Adapter } from "../adapters"
 
-export interface InternalOptions {
-  providers: AppProvider[]
+export type InternalProvider = Provider & {
+  signinUrl: string
+  callbackUrl: string
+}
+
+export interface InternalOptions<P extends InternalProvider = never> {
+  providers: InternalProvider[]
   baseUrl: string
   basePath: string
   action:
@@ -34,7 +39,7 @@ export interface InternalOptions {
      */
     code_challenge_method?: "S256"
   }
-  provider?: AppProvider
+  provider: P
   csrfToken?: string
   csrfTokenVerified?: boolean
   secret: string
@@ -42,10 +47,10 @@ export interface InternalOptions {
   debug: boolean
   logger: LoggerInstance
   session: Required<SessionOptions>
-  pages: PagesOptions
+  pages: Partial<PagesOptions>
   jwt: JWTOptions
-  events: EventCallbacks
-  adapter: ReturnType<Adapter>
+  events: Partial<EventCallbacks>
+  adapter: Adapter
   callbacks: CallbacksOptions
   cookies: CookiesOptions
   callbackUrl: string

@@ -1,5 +1,4 @@
 import * as cookie from "../lib/cookie"
-import adapterErrorHandler from "../../adapters/error-handler"
 
 /**
  * Return a session object (without any private fields)
@@ -31,12 +30,12 @@ export default async function session(req, res) {
       const sessionExpires = sessionExpiresDate.toISOString()
 
       // By default, only exposes a limited subset of information to the client
-      // as needed for presentation purposes (e.g. "you are logged in as…").
+      // as needed for presentation purposes (e.g. "you are logged in as...").
       const defaultSession = {
         user: {
-          name: decodedToken.name || null,
-          email: decodedToken.email || null,
-          image: decodedToken.picture || null,
+          name: decodedToken?.name,
+          email: decodedToken?.email,
+          image: decodedToken?.picture,
         },
         expires: sessionExpires,
       }
@@ -60,7 +59,7 @@ export default async function session(req, res) {
         ...cookies.sessionToken.options,
       })
 
-      await events.session({ session, token })
+      await events.session?.({ session, token })
     } catch (error) {
       // If JWT not verifiable, make sure the cookie for it is removed and return empty object
       logger.error("JWT_SESSION_ERROR", error)
@@ -71,10 +70,7 @@ export default async function session(req, res) {
     }
   } else {
     try {
-      const { getUser, getSession, updateSession } = adapterErrorHandler(
-        await adapter.getAdapter(req.options),
-        logger
-      )
+      const { getUser, getSession, updateSession } = adapter
       const session = await getSession(sessionToken)
       if (session) {
         // Trigger update to session object to update session expiry
@@ -83,15 +79,15 @@ export default async function session(req, res) {
         const user = await getUser(session.userId)
 
         // By default, only exposes a limited subset of information to the client
-        // as needed for presentation purposes (e.g. "you are logged in as…").
+        // as needed for presentation purposes (e.g. "you are logged in as...").
         const defaultSession = {
           user: {
-            name: user.name,
-            email: user.email,
-            image: user.image,
+            name: user?.name,
+            email: user?.email,
+            image: user?.image,
           },
           accessToken: session.accessToken,
-          expires: session.expires,
+          expires: session.expires.toISOString(),
         }
 
         // Pass Session through to the session callback
@@ -109,7 +105,7 @@ export default async function session(req, res) {
           ...cookies.sessionToken.options,
         })
 
-        await events.session({ session: sessionPayload })
+        await events.session?.({ session: sessionPayload })
       } else if (sessionToken) {
         // If sessionToken was found set but it's not valid for a session then
         // remove the sessionToken cookie from browser.

@@ -41,7 +41,7 @@ export interface JWTDecodeParams {
   encryption?: boolean
 }
 
-export function decode(params?: JWTDecodeParams): Promise<JWT>
+export function decode(params?: JWTDecodeParams): Promise<JWT | null>
 
 export type GetTokenParams<R extends boolean = false> = {
   req: NextApiRequest
@@ -58,12 +58,12 @@ export function getToken<R extends boolean = false>(
 ): Promise<R extends true ? string : JWT | null>
 
 export interface JWTOptions {
-  secret?: string
-  maxAge?: number
+  secret: string
+  maxAge: number
   encryption?: boolean
   signingKey?: string
   encryptionKey?: string
-  encode?: typeof encode
-  decode?: typeof decode
+  encode: typeof encode
+  decode: typeof decode
   verificationOptions?: JoseJWT.VerifyOptions<false>
 }

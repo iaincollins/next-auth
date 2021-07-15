@@ -24,8 +24,7 @@
     "./jwt": "./dist/lib/jwt.js",
     "./react": "./dist/client/react.js",
     "./providers": "./dist/providers/index.js",
-    "./providers/*": "./dist/providers/*.js",
-    "./errors": "./dist/lib/errors.js"
+    "./providers/*": "./dist/providers/*.js"
   },
   "scripts": {
     "build": "npm run build:js && npm run build:css",
@@ -51,12 +50,9 @@
     "index.d.ts",
     "providers.js",
     "providers.d.ts",
-    "adapters.js",
     "adapters.d.ts",
     "react.js",
     "react.d.ts",
-    "errors.js",
-    "errors.d.ts",
     "jwt.js",
     "jwt.d.ts",
     "internals"
@@ -76,9 +72,6 @@
     "nodemailer": "^6.6.2",
     "react": "^17.0.2",
     "react-dom": "^17.0.2"
-  },
-  "peerOptionalDependencies": {
-    "nodemailer": "^6.6.2"
   },
   "peerDependenciesMeta": {
     "nodemailer": {

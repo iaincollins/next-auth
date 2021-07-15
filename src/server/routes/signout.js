@@ -1,5 +1,4 @@
 import * as cookie from "../lib/cookie"
-import adapterErrorHandler from "../../adapters/error-handler"
 
 /**
  * Handle requests to /api/auth/signout
@@ -15,21 +14,18 @@ export default async function signout(req, res) {
     // Dispatch signout event
     try {
       const decodedJwt = await jwt.decode({ ...jwt, token: sessionToken })
-      await events.signOut({ token: decodedJwt })
+      await events.signOut?.({ token: decodedJwt })
     } catch (error) {
       // Do nothing if decoding the JWT fails
     }
   } else {
     // Get session from database
-    const { getSession, deleteSession } = adapterErrorHandler(
-      await adapter.getAdapter(req.options),
-      logger
-    )
+    const { getSession, deleteSession } = adapter
 
     try {
       // Dispatch signout event
       const session = await getSession(sessionToken)
-      await events.signOut({ session })
+      await events.signOut?.({ session })
     } catch (error) {
       // Do nothing if looking up the session fails
     }

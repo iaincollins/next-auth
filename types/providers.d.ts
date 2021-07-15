@@ -1,13 +1,12 @@
 import { Profile, TokenSet, User } from "."
 import { Awaitable, NextApiRequest } from "./internals/utils"
-import { Options as SMTPConnectionOptions } from 'nodemailer/lib/smtp-connection'
+import { Options as SMTPConnectionOptions } from "nodemailer/lib/smtp-connection"
 
 export type ProviderType = "oauth" | "email" | "credentials"
 
 export interface CommonProviderOptions {
   id: string
   name: string
-  type: ProviderType
 }
 
 /**
@@ -129,14 +128,6 @@ export type CredentialsProvider = <C extends Record<string, CredentialInput>>(
 
 export type CredentialsProviderType = "Credentials"
 
-export type SendVerificationRequest = (params: {
-  identifier: string
-  url: string
-  baseUrl: string
-  token: string
-  provider: EmailConfig
-}) => Awaitable<void>
-
 export interface EmailConfig extends CommonProviderOptions {
   type: "email"
   // TODO: Make use of https://www.typescriptlang.org/docs/handbook/2/template-literal-types.html
@@ -149,7 +140,33 @@ export interface EmailConfig extends CommonProviderOptions {
    * @default 86400
    */
   maxAge?: number
-  sendVerificationRequest: SendVerificationRequest
+  /**
+   * Used to hash the token with before saving to the database.
+   * If omitted, `next-auth` will assign one.
+   * It is recommended to provide your own secret here.
+   */
+  secret?: string
+  sendVerificationRequest(params: {
+    identifier: string
+    url: string
+    expires: Date
+    provider: EmailConfig
+    token: string
+  }): Awaitable<void>
+  /**
+   * By default, we are generating a random verification token.
+   * You can make it predictable or modify it as you like with this method.
+   * @example
+   * ```js
+   *  Providers.Email({
+   *    async generateVerificationToken() {
+   *      return "ABC123"
+   *    }
+   *  })
+   * ```
+   * [Documentation](https://next-auth.js.org/providers/email#customising-the-verification-token)
+   */
+  generateVerificationToken?(): Awaitable<string>
 }
 
 export type EmailProvider = (options: Partial<EmailConfig>) => EmailConfig
@@ -158,20 +175,15 @@ export type EmailProvider = (options: Partial<EmailConfig>) => EmailConfig
 // when started working on https://github.com/nextauthjs/next-auth/discussions/1465
 export type EmailProviderType = "Email"
 
-export type Provider = OAuthConfig | EmailConfig | CredentialsConfig
-
 export type BuiltInProviders = Record<OAuthProviderType, OAuthProvider> &
   Record<CredentialsProviderType, CredentialsProvider> &
   Record<EmailProviderType, EmailProvider>
 
-export type AppProviders = Array<
-  Provider | ReturnType<BuiltInProviders[keyof BuiltInProviders]>
->
-
-export interface AppProvider extends CommonProviderOptions {
-  signinUrl: string
-  callbackUrl: string
-}
+export type Provider =
+  | OAuthConfig
+  | EmailConfig
+  | CredentialsConfig
+  | ReturnType<BuiltInProviders[keyof BuiltInProviders]>
 
 declare const Providers: BuiltInProviders
 

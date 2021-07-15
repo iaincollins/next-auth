@@ -17,13 +17,9 @@ If you're writing your own custom Adapter, you can take advantage of the types t
 ```ts
 import type { Adapter } from "next-auth/adapters"
 
-const MyAdapter: Adapter = () => {
+function MyAdapter(): Adapter {
   return {
-    async getAdapter() {
-      return {
-        // your adapter methods here
-      }
-    },
+    // your adapter methods here
   }
 }
 ```
@@ -31,14 +27,10 @@ const MyAdapter: Adapter = () => {
 When writing your own custom Adapter in plain JavaScript, note that you can use **JSDoc** to get helpful editor hints and auto-completion like so:
 
 ```js
-/** @type { import("next-auth/adapters").Adapter } */
-const MyAdapter = () => {
+/** @return { import("next-auth/adapters").Adapter } */
+function MyAdapter() {
   return {
-    async getAdapter() {
-      return {
-        // your adapter methods here
-      }
-    },
+    // your adapter methods here
   }
 }
 ```

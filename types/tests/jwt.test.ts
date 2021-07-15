@@ -7,7 +7,7 @@ JWTType.encode({
   secret: "secret",
 })
 
-// $ExpectType Promise<JWT>
+// $ExpectType Promise<JWT | null>
 JWTType.decode({
   token: "token",
   secret: "secret",

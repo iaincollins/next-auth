@@ -31,14 +31,14 @@ You can override any of the options to suit your own use case.
 
 ## Configuration
 
-1. You will need an SMTP account; ideally for one of the [services known to work with nodemailer](http://nodemailer.com/smtp/well-known/).
+1. You will need an SMTP account; ideally for one of the [services known to work with `nodemailer`](http://nodemailer.com/smtp/well-known/).
 2. There are two ways to configure the SMTP server connection.
 
-You can either use a connection string or a nodemailer configuration object.
+You can either use a connection string or a `nodemailer` configuration object.
 
 2.1 **Using a connection string**
 
-Create an .env file to the root of your project and add the connection string and email address.
+Create an `.env` file to the root of your project and add the connection string and email address.
 
 ```js title=".env" {1}
 	EMAIL_SERVER=smtp://username:password@smtp.example.com:587
@@ -90,9 +90,9 @@ providers: [
 
 A user account (i.e. an entry in the Users table) will not be created for the user until the first time they verify their email address. If an email address is already associated with an account, the user will be signed in to that account when they use the link in the email.
 
-## Customising emails
+## Customizing emails
 
-You can fully customise the sign in email that is sent by passing a custom function as the `sendVerificationRequest` option to `Providers.Email()`.
+You can fully customize the sign in email that is sent by passing a custom function as the `sendVerificationRequest` option to `Providers.Email()`.
 
 e.g.
 
@@ -202,7 +202,7 @@ const html = ({ url, site, email }) => {
 `
 }
 
-// Email text body – fallback for email clients that don't render HTML
+// Email text body - fallback for email clients that don't render HTML
 const text = ({ url, site }) => `Sign in to ${site}\n${url}\n\n`
 ```
 
@@ -210,7 +210,7 @@ const text = ({ url, site }) => `Sign in to ${site}\n${url}\n\n`
 If you want to generate great looking email client compatible HTML with React, check out https://mjml.io
 :::
 
-## Customising the Verification Token
+## Customizing the Verification Token
 
 By default, we are generating a random verification token. You can define a `generateVerificationToken` method in your provider options if you want to override it:
 

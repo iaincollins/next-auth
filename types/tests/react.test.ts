@@ -90,7 +90,7 @@ client.SessionProvider({
 client.SessionProvider({
   children: null,
   session: {
-    expires: "",
+    expires: "1234",
   },
   baseUrl: "https://foo.com",
   basePath: "/",

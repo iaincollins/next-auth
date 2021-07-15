@@ -1,48 +1,48 @@
+// @ts-check
 import { randomBytes } from "crypto"
-import adapterErrorHandler from "../../../adapters/error-handler"
+import { hashToken } from "../utils"
 
 /**
- *
- * @param {string} email
- * @param {import("types/providers").EmailConfig} provider
- * @param {import("types/internals").InternalOptions} options
- * @returns
+ * @typedef {import("types/providers").EmailConfig} EmailConfig
  */
-export default async function email(email, provider, options) {
-  try {
-    const { baseUrl, basePath, adapter, logger } = options
 
-    const { createVerificationRequest } = adapterErrorHandler(
-      await adapter.getAdapter(options),
-      logger
-    )
+/**
+ * Starts an e-mail login flow, by generating a token,
+ * and sending it to the user's e-mail (with the help of a DB adapter)
+ * @param {string} identifier
+ * @param {import("types/internals").InternalOptions<EmailConfig>} options
+ */
+export default async function email(identifier, options) {
+  const { baseUrl, basePath, adapter, provider } = options
 
-    // Prefer provider specific secret, but use default secret if none specified
-    const secret = provider.secret || options.secret
+  // Generate token
+  const token =
+    (await provider.generateVerificationToken?.()) ??
+    randomBytes(32).toString("hex")
 
-    // Generate token
-    const token =
-      (await provider.generateVerificationToken?.()) ??
-      randomBytes(32).toString("hex")
+  // Generate a link with email and the unhashed token
+  const params = new URLSearchParams({ token, email: identifier })
+  const url = `${baseUrl}${basePath}/callback/${provider.id}?${params}`
 
-    // Send email with link containing token (the unhashed version)
-    const url = `${baseUrl}${basePath}/callback/${encodeURIComponent(
-      provider.id
-    )}?email=${encodeURIComponent(email)}&token=${encodeURIComponent(token)}`
+  const ONE_DAY_IN_SECONDS = 86400
+  const expires = new Date(
+    Date.now() + (provider.maxAge ?? ONE_DAY_IN_SECONDS) * 1000
+  )
 
-    // @TODO Create invite (send secret so can be hashed)
-    await createVerificationRequest(
-      email,
-      url,
-      token,
-      secret,
-      provider,
-      options
-    )
+  // Save in database
+  // @ts-expect-error
+  await adapter.createVerificationToken({
+    identifier,
+    token: hashToken(token, options),
+    expires,
+  })
 
-    // Return promise
-    return Promise.resolve()
-  } catch (error) {
-    return Promise.reject(error)
-  }
+  // Send to user
+  await provider.sendVerificationRequest({
+    identifier,
+    token,
+    expires,
+    url,
+    provider,
+  })
 }
