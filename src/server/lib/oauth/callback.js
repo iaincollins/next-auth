@@ -9,37 +9,24 @@ export default async function oAuthCallback(req) {
   const client = oAuthClient(provider)
 
   if (provider.version?.startsWith("2.")) {
-    // The "user" object is specific to the Apple provider and is provided on first sign in
-    // e.g. {"name":{"firstName":"Johnny","lastName":"Appleseed"},"email":"johnny.appleseed@nextauth.com"}
-    let { code, user } = req.query // eslint-disable-line camelcase
+    const params = req.method === "GET" ? req.query : req.body
+    let { code, user = null, error, ...other } = params
 
-    if (req.method === "POST") {
-      try {
-        const body = JSON.parse(JSON.stringify(req.body))
-        if (body.error) {
-          throw new Error(body.error)
-        }
-
-        code = body.code
-        user = body.user != null ? JSON.parse(body.user) : null
-      } catch (error) {
-        logger.error(
-          "OAUTH_CALLBACK_HANDLER_ERROR",
-          error,
-          req.body,
-          provider.id,
-          code
-        )
-        throw error
-      }
+    if (error) {
+      logger.error(
+        "OAUTH_CALLBACK_HANDLER_ERROR",
+        error,
+        other,
+        provider.id,
+        code
+      )
+      throw new OAuthCallbackError(error)
     }
 
-    // REVIEW: Is this used by any of the providers?
-    // Pass authToken in header by default (unless 'useAuthTokenHeader: false' is set)
-    if (Object.prototype.hasOwnProperty.call(provider, "useAuthTokenHeader")) {
-      client.useAuthorizationHeaderforGET(provider.useAuthTokenHeader)
-    } else {
-      client.useAuthorizationHeaderforGET(true)
+    // The "user" object is specific to the Apple provider and is provided on first sign in
+    // e.g. {"name":{"firstName":"Johnny","lastName":"Appleseed"},"email":"johnny.appleseed@nextauth.com"}
+    if (user) {
+      user = JSON.parse(user)
     }
 
     try {
@@ -74,7 +61,11 @@ export default async function oAuthCallback(req) {
 
     // eslint-disable-next-line camelcase
     const { token_secret } = await client.getOAuthRequestToken(provider.params)
-    const tokens = await client.getOAuthAccessToken(oauth_token, token_secret, oauth_verifier)
+    const tokens = await client.getOAuthAccessToken(
+      oauth_token,
+      token_secret,
+      oauth_verifier
+    )
     const profileData = await client.get(
       provider.profileUrl,
       tokens.oauth_token,
