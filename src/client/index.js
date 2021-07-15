@@ -192,7 +192,8 @@ export async function signIn(provider, options = {}, authorizationParams = {}) {
 
   const isCredentials = providers[provider].type === "credentials"
   const isEmail = providers[provider].type === "email"
-  const isSupportingReturn = isCredentials || isEmail
+  const isSms = providers[provider].type === "sms"
+  const isSupportingReturn = isCredentials || isEmail || isSms
 
   const signInUrl = isCredentials
     ? `${baseUrl}/callback/${provider}`

@@ -9,7 +9,11 @@ export default function signin({
 }) {
   // We only want to render providers
   const providersToRender = providers.filter((provider) => {
-    if (provider.type === "oauth" || provider.type === "email") {
+    if (
+      provider.type === "oauth" ||
+      provider.type === "email" ||
+      provider.type === "sms"
+    ) {
       // Always render oauth and email type providers
       return true
     } else if (provider.type === "credentials" && provider.credentials) {
@@ -57,10 +61,13 @@ export default function signin({
               </button>
             </form>
           )}
-          {(provider.type === "email" || provider.type === "credentials") &&
+          {(provider.type === "email" ||
+            provider.type === "credentials" ||
+            provider.type === "sms") &&
             i > 0 &&
             providersToRender[i - 1].type !== "email" &&
-            providersToRender[i - 1].type !== "credentials" && <hr />}
+            providersToRender[i - 1].type !== "credentials" &&
+            providersToRender[i - 1].type !== "sms" && <hr />}
           {provider.type === "email" && (
             <form action={provider.signinUrl} method="POST">
               <input type="hidden" name="csrfToken" value={csrfToken} />
@@ -76,6 +83,25 @@ export default function signin({
                 placeholder="email@example.com"
               />
               <button type="submit">Sign in with {provider.name}</button>
+            </form>
+          )}
+          {provider.type === "sms" && (
+            <form action={provider.signinUrl} method="POST">
+              <input type="hidden" name="csrfToken" value={csrfToken} />
+              <label for={`input-phone-for-${provider.id}-provider`}>
+                Phone Number (with country code)
+              </label>
+              <input
+                id={`input-phone-for-${provider.id}-provider`}
+                autoFocus
+                type="tel"
+                name="phoneNumber"
+                value={""}
+                placeholder="880123xxxxxxx"
+              />
+              <button type="submit">
+                Sign in with {provider.name} Verification
+              </button>
             </form>
           )}
           {provider.type === "credentials" && (
@@ -104,7 +130,9 @@ export default function signin({
               <button type="submit">Sign in with {provider.name}</button>
             </form>
           )}
-          {(provider.type === "email" || provider.type === "credentials") &&
+          {(provider.type === "email" ||
+            provider.type === "credentials" ||
+            provider.type === "sms") &&
             i + 1 < providersToRender.length && <hr />}
         </div>
       ))}

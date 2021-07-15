@@ -295,3 +295,56 @@ The Credentials provider can only be used if JSON Web Tokens are enabled for ses
 |    type     |   Type of provider, in this case `credentials`    |         `"credentials"`               |   Yes    |
 | credentials |          The credentials to sign-in with          |             `Object`                  |   Yes    |
 |  authorize  | Callback to execute once user is to be authorized | `(credentials, req) => Promise<User>` |   Yes    |
+
+
+## SMS Provider
+
+### How to
+
+The SMS provider allows you to login with your phone instead of your email. Once you request to login, your phone will receive a One Time Password (OTP) that you will need to enter in order to be able to sign in. 
+
+This is intended to support a usecase where users with poor digital skills or without an email can login with their phone numbers.
+
+Configuration is a bit different to other providers, since the other providers use emails as opposed to phone numbers. You will need to use a third-party SMS/Verification Provider. Two popular ones are [MessageBird](https://developers.messagebird.com/api/verify/) and [Twilio](https://www.twilio.com/docs/verify/api).
+
+```js title="pages/api/auth/[...nextauth].js"
+import SMSProvider from "next-auth/providers/sms"
+...
+providers: [
+  SMSProvider({
+      sendSmsVerificationRequest: (recipientPhoneNumber) => {
+        return new Promise((resolve, reject) => {
+          // create a verification request with your
+          // sms/verification provider
+        })
+      },
+      verifySmsVerificationRequest: (verificationId, otp) => {
+        return new Promise((resolve, reject) => {
+          // verify with your sms/verification provider
+          // that the verification id and otp pair is valid
+        })
+      },
+    }),
+],
+...
+```
+See the [SMS provider documentation](/providers/sms) for more information on how to configure SMS sign in.
+
+:::note
+SMS provider is currently only supported when using JWT sessions. It does not store any user data in the database.
+:::
+
+:::note
+Since this is different than all other authentication flows that primarily use emails, it is strongly recommended that you override the [callbacks](https://next-auth.js.org/configuration/callbacks) in your `[...nextauth].js` to make sure that the session object is not empty upon logging in. 
+:::
+
+### Options
+
+|          Name           |                                     Description                                     |               Type               | Required |
+| :---------------------: | :---------------------------------------------------------------------------------: | :------------------------------: | :------: |
+|           id            |                             Unique ID for the provider                              |             `string`             |   Yes    |
+|          name           |                          Descriptive name for the provider                          |             `string`             |   Yes    |
+|          type           |                       Type of provider, in this case `sms`                        |            `"sms"`             |   Yes    |
+| sendSmsVerificationRequest |               Callback to execute when a verification request is sent               | `(recipientPhoneNumber) => Promise<string>` |   Yes    |
+| verifySmsVerificationRequest |               Callback to execute when a user enters OTP              | `(verificationId, otp) => Promise<{ phone: string, id: string }>` |   Yes    |
+|         maxAge          | How long should the sent OTP and the verification ID cookie be valid. Defaults to 2 minutes. Should align with the configuration used in SMS/Verification provider |             `number`             |    No    |

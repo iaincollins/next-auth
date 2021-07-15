@@ -1,4 +1,5 @@
 import { useState } from "react"
+import { randomBytes } from "crypto"
 import userEvent from "@testing-library/user-event"
 import { render, screen, waitFor } from "@testing-library/react"
 import logger from "../../lib/logger"
@@ -258,10 +259,73 @@ test("when it fails to fetch the providers, it redirected back to signin page", 
   })
 })
 
+test("when user does not provide a phone number, it redirects to error page", async () => {
+  const sendSmsVerificationRequest = jest
+    .fn()
+    .mockImplementationOnce(async (recepientNumber) =>
+      Promise.reject(new Error("Recipient not defined"))
+    )
+
+  server.use(
+    rest.post("/api/auth/signin/sms", async (req, res, ctx) => {
+      try {
+        await sendSmsVerificationRequest()
+      } catch {
+        return res(
+          ctx.status(500),
+          ctx.json({
+            url: "/api/auth/error",
+          })
+        )
+      }
+    })
+  )
+
+  render(<SignInFlow providerId="sms" />)
+
+  userEvent.click(screen.getByRole("button"))
+
+  await waitFor(() => {
+    expect(window.location.replace).toHaveBeenCalledWith(`/api/auth/error`)
+    expect(sendSmsVerificationRequest).toHaveBeenCalledTimes(1)
+    expect(sendSmsVerificationRequest).toBeCalledWith()
+  })
+})
+
+test("when user provides a phone number, it should redirect to verify-request page", async () => {
+  const sendSmsVerificationRequest = jest
+    .fn()
+    .mockImplementationOnce(async (recepientNumber) =>
+      Promise.resolve(randomBytes(16).toString("hex"))
+    )
+
+  const phone = "01234567890"
+
+  server.use(
+    rest.post("/api/auth/signin/sms", async (req, res, ctx) => {
+      await sendSmsVerificationRequest(req.body.get("phone"))
+      return res(ctx.status(200), ctx.json({ url: `/api/auth/verify-request` }))
+    })
+  )
+
+  render(<SignInFlow providerId="sms" data={{ phone }} />)
+
+  userEvent.click(screen.getByRole("button"))
+
+  await waitFor(() => {
+    expect(window.location.replace).toHaveBeenCalledWith(
+      "/api/auth/verify-request"
+    )
+    expect(sendSmsVerificationRequest).toHaveBeenCalledTimes(1)
+    expect(sendSmsVerificationRequest).toHaveBeenCalledWith(phone)
+  })
+})
+
 function SignInFlow({
   providerId,
   callbackUrl,
   redirect = true,
+  data = {},
   authorizationParams = {},
 }) {
   const [response, setResponse] = useState(null)
@@ -272,6 +336,7 @@ function SignInFlow({
       {
         callbackUrl,
         redirect,
+        ...data,
       },
       authorizationParams
     )

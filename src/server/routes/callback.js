@@ -28,6 +28,7 @@ export default async function callback(req, res) {
 
   // Get session ID (if set)
   const sessionToken = req.cookies?.[cookies.sessionToken.name] ?? null
+  const verificationIdToken = req.cookies?.vid ?? null // required for sms
 
   if (provider.type === "oauth") {
     try {
@@ -336,7 +337,8 @@ export default async function callback(req, res) {
     let userObjectReturnedFromAuthorizeHandler
     try {
       userObjectReturnedFromAuthorizeHandler = await provider.authorize(
-        credentials, {...req, options: {}, cookies: {}}
+        credentials,
+        { ...req, options: {}, cookies: {} }
       )
       if (!userObjectReturnedFromAuthorizeHandler) {
         return res
@@ -412,7 +414,106 @@ export default async function callback(req, res) {
     await dispatchEvent(events.signIn, { user, account })
 
     return res.redirect(callbackUrl || baseUrl)
+  } else if (provider.type === "sms" && req.method === "POST") {
+    if (!useJwtSession) {
+      logger.error(
+        "CALLBACK_SMS_JWT_ERROR",
+        "Signin in with SMS is only supported if JSON Web Tokens are enabled"
+      )
+      return res
+        .status(500)
+        .redirect(`${baseUrl}${basePath}/error?error=Configuration`)
+    }
+
+    if (
+      !provider.verifySmsVerificationRequest ||
+      typeof provider.verifySmsVerificationRequest !== "function"
+    ) {
+      logger.error(
+        "CALLBACK_SMS_HANDLER_ERROR",
+        "Must define an verifySmsVerificationRequest(id, otp) handler to use SMS authentication provider"
+      )
+      return res
+        .status(500)
+        .redirect(`${baseUrl}${basePath}/error?error=Configuration`)
+    }
+
+    const otp = req.body.otp ?? null
+
+    let userObjectReturnedFromAuthorizeHandler
+    try {
+      userObjectReturnedFromAuthorizeHandler =
+        await provider.verifySmsVerificationRequest(verificationIdToken, otp)
+      if (!userObjectReturnedFromAuthorizeHandler) {
+        return res
+          .status(401)
+          .redirect(
+            `${baseUrl}${basePath}/error?error=SMSSignIn&provider=${encodeURIComponent(
+              provider.id
+            )}`
+          )
+      }
+    } catch (error) {
+      if (error instanceof Error) {
+        return res.redirect(
+          `${baseUrl}${basePath}/error?error=${encodeURIComponent(
+            error.message
+          )}`
+        )
+      }
+      return res.redirect(error)
+    }
+
+    const user = userObjectReturnedFromAuthorizeHandler
+    const account = { id: provider.id, type: "sms" }
+
+    try {
+      const signInCallbackResponse = await callbacks.signIn(user, account, null)
+      if (signInCallbackResponse === false) {
+        return res
+          .status(403)
+          .redirect(`${baseUrl}${basePath}/error?error=AccessDenied`)
+      }
+    } catch (error) {
+      if (error instanceof Error) {
+        return res.redirect(
+          `${baseUrl}${basePath}/error?error=${encodeURIComponent(
+            error.message
+          )}`
+        )
+      }
+      return res.redirect(error)
+    }
+
+    const defaultJwtPayload = {
+      phone: user.phone,
+      sub: user.id?.toString(),
+    }
+    const jwtPayload = await callbacks.jwt(
+      defaultJwtPayload,
+      user,
+      account,
+      userObjectReturnedFromAuthorizeHandler,
+      false
+    )
+
+    // Sign and encrypt token
+    const newEncodedJwt = await jwt.encode({ ...jwt, token: jwtPayload })
+
+    // Set cookie expiry date
+    const cookieExpires = new Date()
+    cookieExpires.setTime(cookieExpires.getTime() + sessionMaxAge * 1000)
+
+    cookie.set(res, cookies.sessionToken.name, newEncodedJwt, {
+      expires: cookieExpires.toISOString(),
+      ...cookies.sessionToken.options,
+    })
+
+    await dispatchEvent(events.signIn, { user, account })
+
+    return res.redirect(callbackUrl || baseUrl)
   }
+
   return res
     .status(500)
     .end(`Error: Callback for provider type ${provider.type} not supported`)

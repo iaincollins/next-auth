@@ -193,11 +193,49 @@ async function NextAuthHandler(req, res, userOptions) {
             return routes.callback(req, res)
           }
           break
-        case "verify-request":
+        case "verify-request": {
+          /*
+            NOTE: could not use
+            const {
+              nextauth,
+              action = nextauth[0],
+              providerId = nextauth[1],
+              error = nextauth[1],
+            } = req.query
+
+            since, the req.query object looks like this:
+            { provider: 'sms', type: 'sms', nextauth: ['verify-request'] }
+            
+            so providerId actually ends up being undefined
+          */
+          const { provider, type: providerType } = req.query
+          const callbackUrl = providers.find(
+            ({ id }) => id === provider
+          ).callbackUrl
+
           if (pages.verifyRequest) {
-            return res.redirect(pages.verifyRequest)
+            // also pass the provider and type information in query string
+            // to user defined verify-request pages
+            let urlPath = pages.verifyRequest
+            urlPath = urlPath.endsWith("/")
+              ? urlPath.slice(0, urlPath.length - 1)
+              : urlPath
+
+            return res.redirect(
+              `${urlPath}?provider=${encodeURIComponent(
+                provider
+              )}&type=${encodeURIComponent(
+                providerType
+              )}&callbackUrl=${encodeURIComponent(callbackUrl)}`
+            )
           }
-          return render.verifyRequest()
+
+          return render.verifyRequest({
+            provider,
+            providerType,
+            callbackUrl,
+          })
+        }
         case "error":
           if (pages.error) {
             return res.redirect(

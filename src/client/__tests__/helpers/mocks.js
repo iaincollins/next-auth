@@ -14,6 +14,13 @@ export const mockSession = {
 
 export const mockProviders = {
   ok: true,
+  sms: {
+    id: "sms",
+    name: "SMS",
+    type: "sms",
+    signinUrl: "path/to/signin",
+    callbackUrl: "path/to/callback",
+  },
   github: {
     id: "github",
     name: "Github",

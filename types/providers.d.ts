@@ -1,8 +1,8 @@
 import { Profile, TokenSet, User } from "."
 import { Awaitable, NextApiRequest } from "./internals/utils"
-import { Options as SMTPConnectionOptions } from 'nodemailer/lib/smtp-connection'
+import { Options as SMTPConnectionOptions } from "nodemailer/lib/smtp-connection"
 
-export type ProviderType = "oauth" | "email" | "credentials"
+export type ProviderType = "oauth" | "email" | "credentials" | "sms"
 
 export interface CommonProviderOptions {
   id: string
@@ -121,7 +121,10 @@ interface CredentialsConfig<C extends Record<string, CredentialInput> = {}>
   extends CommonProviderOptions {
   type: "credentials"
   credentials: C
-  authorize(credentials: Record<keyof C, string>, req: NextApiRequest): Awaitable<User | null>
+  authorize(
+    credentials: Record<keyof C, string>,
+    req: NextApiRequest
+  ): Awaitable<User | null>
 }
 
 export type CredentialsProvider = <C extends Record<string, CredentialInput>>(
@@ -159,11 +162,40 @@ export type EmailProvider = (options: Partial<EmailConfig>) => EmailConfig
 // when started working on https://github.com/nextauthjs/next-auth/discussions/1465
 export type EmailProviderType = "Email"
 
-export type Provider = OAuthConfig | EmailConfig | CredentialsConfig
+// Start SMS config definition
+// the actual implementation will vary depending on the SMS provider, e.g. Twilio, MessageBird etc.
+export type VerifySMSVerificationRequestResponse = {
+  phone: string
+  id: string
+} & Record<string, any>
+
+export type SendSMSVerificationRequest = (
+  recepientNumber: string
+) => Awaitable<string>
+
+export type VerifySMSVerificationRequest = (
+  verificationId: string,
+  token: string
+) => Awaitable<VerifySMSVerificationRequestResponse>
+
+export interface SMSConfig extends CommonProviderOptions {
+  type: "sms"
+  maxAge?: number
+  sendSmsVerificationRequest: SendSMSVerificationRequest
+  verifySmsVerificationRequest: VerifySMSVerificationRequest
+}
+
+export type SMSProvider = (options: Partial<SMSConfig>) => SMSConfig
+
+export type SMSProviderType = "SMS"
+// end SMS config definition
+
+export type Provider = OAuthConfig | EmailConfig | CredentialsConfig | SMSConfig
 
 export type BuiltInProviders = Record<OAuthProviderType, OAuthProvider> &
   Record<CredentialsProviderType, CredentialsProvider> &
-  Record<EmailProviderType, EmailProvider>
+  Record<EmailProviderType, EmailProvider> &
+  Record<SMSProviderType, SMSProvider>
 
 export type AppProviders = Array<
   Provider | ReturnType<BuiltInProviders[keyof BuiltInProviders]>

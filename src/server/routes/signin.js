@@ -1,6 +1,8 @@
 import getAuthorizationUrl from "../lib/signin/oauth"
 import emailSignin from "../lib/signin/email"
+import smsSignIn from "../lib/signin/sms"
 import adapterErrorHandler from "../../adapters/error-handler"
+import * as cookie from "../lib/cookie"
 
 /**
  * Handle requests to /api/auth/signin
@@ -8,14 +10,8 @@ import adapterErrorHandler from "../../adapters/error-handler"
  * @param {import("types/internals").NextAuthResponse} res
  */
 export default async function signin(req, res) {
-  const {
-    provider,
-    baseUrl,
-    basePath,
-    adapter,
-    callbacks,
-    logger,
-  } = req.options
+  const { provider, baseUrl, basePath, adapter, callbacks, logger } =
+    req.options
 
   if (!provider.type) {
     return res.status(500).end(`Error: Type not specified for ${provider.name}`)
@@ -78,6 +74,64 @@ export default async function signin(req, res) {
       logger.error("SIGNIN_EMAIL_ERROR", error)
       return res.redirect(`${baseUrl}${basePath}/error?error=EmailSignin`)
     }
+
+    return res.redirect(
+      `${baseUrl}${basePath}/verify-request?provider=${encodeURIComponent(
+        provider.id
+      )}&type=${encodeURIComponent(provider.type)}`
+    )
+  } else if (provider.type === "sms" && req.method === "POST") {
+    const phoneNumber = req.body.phoneNumber?.trim() ?? null
+
+    // TODO: maybe extend the adapters to include a getUserByPhone() method?
+    // will also require change in the database schema to support a phone number column
+    // const profile = (await getUserByPhone(phoneNumber)) ||  { phoneNumber };
+
+    const profile = { phoneNumber }
+    const account = {
+      id: provider.id,
+      type: "sms",
+      providerAccountId: phoneNumber,
+    }
+
+    // check if the provided phone number is allowed to signin
+    try {
+      const signInCallbackResponse = await callbacks.signIn(profile, account, {
+        phoneNumber,
+        verificationRequest: true,
+      })
+      if (signInCallbackResponse === false) {
+        return res.redirect(`${baseUrl}${basePath}/error?error=AccessDenied`)
+      } else if (typeof signInCallbackResponse === "string") {
+        return res.redirect(signInCallbackResponse)
+      }
+    } catch (error) {
+      if (error instanceof Error) {
+        return res.redirect(
+          `${baseUrl}${basePath}/error?error=${encodeURIComponent(error)}`
+        )
+      }
+      // TODO: Remove in a future major release
+      logger.warn("SIGNIN_CALLBACK_REJECT_REDIRECT")
+      return res.redirect(error)
+    }
+
+    // all sms providers will return a verification id when they create the verification service
+    // using Twilio, MessageBird or any other SMS provider API
+    let verificationId
+    try {
+      verificationId = await smsSignIn(phoneNumber, provider, req.options)
+    } catch (error) {
+      logger.error("SIGNIN_SMS_ERROR", error)
+      return res.redirect(`${baseUrl}${basePath}/error?error=SMSSignIn`)
+    }
+
+    // set a cookie that is valid for the time equal to the max age of the sms token validity
+    cookie.set(res, "vid", verificationId, {
+      httpOnly: true,
+      expires: new Date(Date.now() + provider.maxAge * 1000),
+      path: `/api/auth/callback/${provider.type}`,
+    })
 
     return res.redirect(
       `${baseUrl}${basePath}/verify-request?provider=${encodeURIComponent(
