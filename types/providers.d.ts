@@ -151,6 +151,7 @@ export interface EmailConfig extends CommonProviderOptions {
    */
   maxAge?: number
   sendVerificationRequest: SendVerificationRequest
+  generateVerificationToken?:() => Promise<string>
 }
 
 export type EmailProvider = (options: Partial<EmailConfig>) => EmailConfig
