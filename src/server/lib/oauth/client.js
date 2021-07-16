@@ -246,14 +246,36 @@ async function getOAuth2 (provider, accessToken, results) {
     httpMethod = 'POST'
   }
 
-  return new Promise((resolve, reject) => {
-    this._request(httpMethod, url, headers, null, accessToken, (error, profileData) => {
-      if (error) {
-        return reject(error)
-      }
-      resolve(profileData)
+  const request = (httpMethod, url, headers, accessToken) =>
+    new Promise((resolve, reject) => {
+      this._request(
+        httpMethod,
+        url,
+        headers,
+        null,
+        accessToken,
+        (error, profileData, response) => {
+          if (error) {
+            return reject(error)
+          }
+
+          if (response.statusCode === 302 && response.headers.location) {
+            return resolve(
+              request(
+                httpMethod,
+                response.headers.location,
+                headers,
+                accessToken
+              )
+            )
+          }
+
+          return resolve(profileData)
+        }
+      )
     })
-  })
+
+  return request(httpMethod, url, headers, accessToken)
 }
 
 /** Bungie needs special handling */
